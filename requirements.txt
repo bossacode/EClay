@@ -1,0 +1,4 @@
+gudhi=3.8.0
+pytorch=2.0.1
+python=3.10.13
+torchvision=0.15.2
