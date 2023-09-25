@@ -258,4 +258,20 @@ class PersistenceLandscapeLayer(nn.Module):
             len_dim_perst = len(dim_perst)
 
             # arrange
-            
+
+
+class GThetaLayer(nn.Module):
+    def __init__(self, in_features, out_features=10, **kwargs):
+        super().__init__()
+        self.g_layer = nn.Linear(in_features, out_features)
+
+    def forward(self, inputs):
+        """
+        Args:
+            inputs: tensor of shape [..., in_features]
+
+        Returns:
+            outputs: tensor of shape [..., out_features]
+        """
+        outputs = self.g_layer(inputs)
+        return outputs
