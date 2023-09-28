@@ -2,22 +2,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 import gudhi
-import time
 
-# for [1, 28, 28] image: lims = [[1, -1], [-1,1]], by= [-1/13.5, 1/13.5]
-# for [3, 28, 28] image: lims = [[-1, 1], [1, -1], [-1, 1]], by= [1, -1/13.5, 1/13.5]
-def grid_by(lims=[[1,-1], [-1,1]], by=[-1/13.5, 1/13.5]):
+# for [1, H, W] image: lims = [[1, -1], [-1, 1]]
+# for [C, H, W] image: lims = [[-1, 1], [1, -1], [-1, 1]]
+def grid_by(lims=[[1,-1], [-1,1]], size=(28,28)):
     """
     Creates a tensor of grid points with shape [(C*H*W), D]
     Grid points have one-to-one correspondnce with pixel values flattened in row-major order
     
-    * D=2 if input image is 1-channel and D=3 if 3-channel
+    * D = 2 if 1-channel or D=3 if 3-channel
 
     Args:
-        lims: domain of the grid points
-        by: interval between each grid point
+        lims: [domain of C, domain of H, domain of W] if C > 1 or [domain of H, domain of W] if 1-channel
+        size: (C, H, W) if C > 1 or (H, W) if 1-channel
     """
-    expansions = [torch.arange(start, end+step, step, dtype=torch.float32) for (start, end), step in zip(lims, by)]
+    assert len(size) in (2,3) and len(lims) == len(size)
+    expansions = [torch.linspace(start, end, steps) for (start, end), steps in zip(lims, size)]
     grid_size = [len(ex) for ex in expansions]  # [H, W] if 1-channel or [C, H, W] if 3-channel
     grid = torch.index_select(torch.cartesian_prod(*expansions),
                               dim=1,
@@ -34,14 +34,14 @@ def knn(X, Y, k, r=2):
         Y: Tensor of shape [(C*H*W), D]
         k: Int representing number of neighbors
         
-        * D=2 if input image is 1-channel and D=3 if 3-channel
+        * D=2 if 1-channel or D=3 if 3-channel
 
     Returns:
         distance: Tensor of shape [batch_size, (C*H*W), k]
         index: Tensor of shape [batch_size, (C*H*W), k]
     """
     # print(X.shape, Y.shape)
-    assert X.shape[-1] == Y.shape[1]
+    assert X.shape[1:] == Y.shape
     d = X.shape[-1]
     if r == 2:
         Xr = X.unsqueeze(2)
@@ -103,11 +103,11 @@ def dtm_using_knn(knn_distance, knn_index, weight, weight_bound, r=2):
 
 
 class DTMWeightLayer(nn.Module):
-    def __init__(self, m0=0.3, lims=[[1,-1], [-1,1]], by=[-1/13.5, 1/13.5], r=2, **kwargs):
+    def __init__(self, m0=0.3, lims=[[1,-1], [-1,1]], size=(28,28), r=2, **kwargs):
         super().__init__()
         self.m0 = m0
         self.r = r
-        self.grid, self.grid_size = grid_by(lims, by)
+        self.grid, self.grid_size = grid_by(lims, size)
 
     def dtm(self, inputs, weight):
         """
@@ -277,11 +277,12 @@ class PersistenceLandscapeLayer(nn.Module):
 
 
 class PLWeightedAvgLayer(nn.Module):
-    def __init__(self, k_max=2, dimensions=[0, 1], **kwargs):
+    def __init__(self, tseq=[0.5, 0.7, 0.9], k_max=2, dimensions=[0, 1], **kwargs):
         # initialize with uniform weights
         self.weights = nn.Parameter(torch.tensor([[[[1/k_max]]]]).repeat(1, len(dimensions), 1, k_max))
         self.softmax = nn.Softmax(dim=-1)
         self.flatten = nn.Flatten()
+
 
     def forward(self, inputs):
         """
@@ -311,4 +312,13 @@ class GThetaLayer(nn.Module):
         """
         outputs = self.g_layer(inputs)
         return outputs
-    
+
+
+class TopoWeightLayer(nn.Module):
+    def __init__(self, **kwargs):
+        self.dtm_layer = DTMWeightLayer(**kwargs)
+        self.landscape_layer = PersistenceLandscapeLayer(**kwargs)
+        self.plavg_layer = PLWeightedAvgLayer(**kwargs)
+        self.gtheta_layer = GThetaLayer() # 이거 처리 고민
+
+
