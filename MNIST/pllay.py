@@ -259,20 +259,12 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
 
         landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32)
         gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32)
-        ####################################################################
-        print("local_grad shape:", gradient.shape)
-        ####################################################################
         ctx.save_for_backward(gradient)
         return landscape, gradient
 
     @staticmethod
     def backward(ctx, grad_out, _grad_out_gradient):
         local_grad = ctx.saved_tensors
-        ###################################################################################
-        print("grad_out shape:", grad_out.shape)
-        print("_grad_out_gradient shape:", _grad_out_gradient.shape)
-        print("all 0:", torch.all(_grad_out_gradient == 0.))
-        ###################################################################################
         grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
         # gradient에 대한 gradient 누적해야 하나...?
         print(_grad_out_gradient)   # 요거 0이면 누적 안 해도 될텐데
