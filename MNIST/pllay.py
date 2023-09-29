@@ -100,11 +100,11 @@ def dtm_using_knn(knn_dist, knn_index, weight, weight_bound, r=2):
         cum_dist = torch.cumsum(r_dist * knn_weight, -1)
         dtm_val = torch.gather(cum_dist + r_dist*(weight_bound-cum_knn_weight), -1, k_index)
         dtm_val = torch.pow(dtm_val/weight_bound, 1/r)
-    return dtm_val.squeeze() 
+    return dtm_val.squeeze(-1) 
 
 
 class DTMLayer(nn.Module):
-    def __init__(self, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2, **kwargs):
+    def __init__(self, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2):
         super().__init__()
         self.m0 = m0
         self.r = r
@@ -154,7 +154,7 @@ class DTMLayer(nn.Module):
         return dtm_val
 
 
-class PersistenceLandscapeCustomGrad(nn.autograd.Function):
+class PersistenceLandscapeCustomGrad(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
         """
@@ -162,15 +162,16 @@ class PersistenceLandscapeCustomGrad(nn.autograd.Function):
             input: Tensor of shape [batch_size, (C*H*W)]
         Returns:
             landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
-            gradient: Tensor of shape [batch_size, len_dim, len_tseq, k_max, (C*H*W)]   -> verify
+            gradient: Tensor of shape [batch_size, len_dim, len_tseq, k_max, (C*H*W)]
         """
+        tseq = np.array(tseq)
         land_list = []
         diff_list = []
         ###############################################################
         # for loop over batch (chech if parallelizable)
         ###############################################################
-        for batch_num in range(input.shape[0]):
-            dtm_val = input[batch_num]
+        for n_batch in range(input.shape[0]):
+            dtm_val = input[n_batch].numpy()
             cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=dtm_val)
             ph = cub_cpx.persistence(homology_coeff_field=2, min_persistence=0)      # list of pairs(dimension, (birth, death))
             # 이거 문서 읽으면서 다시 봐보기
@@ -256,14 +257,22 @@ class PersistenceLandscapeCustomGrad(nn.autograd.Function):
             diff = np.dot(land_diff_birth, DiagFUNDiffBirth[order, :]) + np.dot(land_diff_death, DiagFUNDiffDeath[order, :])
             diff_list.append(diff)
 
-        landscape = torch.from_numpy(np.stack(land_list), dtype=torch.float32)
-        gradient = torch.from_numpy(np.stack(diff_list), dtype=torch.float32)
+        landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32)
+        gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32)
+        ####################################################################
+        print("local_grad shape:", gradient.shape)
+        ####################################################################
         ctx.save_for_backward(gradient)
         return landscape, gradient
 
     @staticmethod
     def backward(ctx, grad_out, _grad_out_gradient):
         local_grad = ctx.saved_tensors
+        ###################################################################################
+        print("grad_out shape:", grad_out.shape)
+        print("_grad_out_gradient shape:", _grad_out_gradient.shape)
+        print("all 0:", torch.all(_grad_out_gradient == 0.))
+        ###################################################################################
         grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
         # gradient에 대한 gradient 누적해야 하나...?
         print(_grad_out_gradient)   # 요거 0이면 누적 안 해도 될텐데
@@ -271,7 +280,7 @@ class PersistenceLandscapeCustomGrad(nn.autograd.Function):
 
 
 class PersistenceLandscapeLayer(nn.Module):
-    def __init__(self, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1], **kwargs):
+    def __init__(self, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
         super().__init__()
         self.tseq = np.array(tseq)
         self.K_max = K_max
@@ -289,9 +298,9 @@ class PersistenceLandscapeLayer(nn.Module):
 
 
 class WeightedAvgLandscapeLayer(nn.Module):
-    def __init__(self, K_max=2, dimensions=[0, 1], **kwargs):
+    def __init__(self, K_max=2, dimensions=[0, 1]):
         super().__init__()
-        self.land_weight = nn.Parameter(torch.tensor(1/K_max).repeat(1, len(dimensions), 1, K_max))     # weight of landscapes initialized as uniform
+        self.land_weight = nn.Parameter(torch.tensor(1/K_max).repeat(1, len(dimensions), 1, K_max)) # weight of landscapes initialized as uniform
         self.softmax = nn.Softmax(dim=-1)
         self.flatten = nn.Flatten()
 
@@ -304,13 +313,13 @@ class WeightedAvgLandscapeLayer(nn.Module):
             output: Tensor of shape [batch_size, (len_dim*len_tseq)]
         """
         weight = self.softmax(self.land_weight)
-        weighted_avg_land = torch.sum(input * weight, dim=-1)    # weighted average of landscapes
+        weighted_avg_land = torch.sum(input * weight, dim=-1)   # weighted average of landscapes
         output = self.flatten(weighted_avg_land)
         return output
 
 
 class GThetaLayer(nn.Module):
-    def __init__(self, tseq=[0.5, 0.7, 0.9], dimensions=[0, 1], out_features=10, **kwargs):
+    def __init__(self, out_features, tseq=[0.5, 0.7, 0.9], dimensions=[0, 1]):
         super().__init__()
         self.g_layer = nn.Linear(len(dimensions)*len(tseq), out_features)
 
@@ -327,11 +336,12 @@ class GThetaLayer(nn.Module):
 
 
 class TopoWeightLayer(nn.Module):
-    def __init__(self, out_features, **kwargs):
-        self.dtm_layer = DTMLayer(**kwargs)
-        self.landscape_layer = PersistenceLandscapeLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
-        self.avg_layer = WeightedAvgLandscapeLayer(*kwargs)
-        self.gtheta_layer = GThetaLayer(out_features=out_features, **kwargs)
+    def __init__(self, out_features, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2, tseq=[0.5, 0.7, 0.9], K_max=2, dimensions=[0, 1]):
+        super().__init__()
+        self.dtm_layer = DTMLayer(m0, lims, size, r)
+        self.landscape_layer = PersistenceLandscapeLayer(tseq, K_max, self.dtm_layer.grid_size, dimensions)
+        self.avg_layer = WeightedAvgLandscapeLayer(K_max, dimensions)
+        self.gtheta_layer = GThetaLayer(out_features, tseq, dimensions)
 
     def forward(self, input):
         """
@@ -341,7 +351,7 @@ class TopoWeightLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        grids = torch.expand(self.dtm_layer.grid, input.shape[0],-1, -1)
+        grids = self.dtm_layer.grid.expand(input.shape[0],-1, -1)
         dtm_val = self.dtm_layer(input=grids, weight=input)
         land = self.landscape_layer(dtm_val)
         weighted_avg_land = self.avg_layer(land)
