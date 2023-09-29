@@ -5,7 +5,7 @@ import gudhi
 
 # for [1, H, W] image: lims = [[1, -1], [-1, 1]], size = (H, W)
 # for [C, H, W] image: lims = [[-1, 1], [1, -1], [-1, 1]], size = (C, H, W)
-def grid_by(lims=[[1,-1], [-1,1]], size=(28, 28)):
+def grid_by(device, lims=[[1,-1], [-1,1]], size=(28, 28)):
     """
     Creates a tensor of grid points.
     Grid points have one-to-one correspondence with input values that are flattened in row-major order.
@@ -24,6 +24,7 @@ def grid_by(lims=[[1,-1], [-1,1]], size=(28, 28)):
     grid = torch.index_select(torch.cartesian_prod(*expansions),
                               dim=1,
                               index=torch.tensor([0,2,1]) if len(size)==3 else torch.tensor([1,0]))
+    grid = grid.to(device)
     grid_size = size
     return grid, grid_size
 
@@ -104,11 +105,11 @@ def dtm_using_knn(knn_dist, knn_index, weight, weight_bound, r=2):
 
 
 class DTMLayer(nn.Module):
-    def __init__(self, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2):
+    def __init__(self,device,  m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2):
         super().__init__()
         self.m0 = m0
         self.r = r
-        self.grid, self.grid_size = grid_by(lims, size)
+        self.grid, self.grid_size = grid_by(device, lims, size)
 
     def dtm(self, input, weight):
         """
@@ -156,7 +157,7 @@ class DTMLayer(nn.Module):
 
 class PersistenceLandscapeCustomGrad(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
+    def forward(ctx, input, device, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
         """
         Args:
             input: Tensor of shape [batch_size, (C*H*W)]
@@ -171,7 +172,7 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
         # for loop over batch (chech if parallelizable)
         ###############################################################
         for n_batch in range(input.shape[0]):
-            dtm_val = input[n_batch].numpy()
+            dtm_val = input[n_batch].cpu().numpy()
             cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=dtm_val)
             ph = cub_cpx.persistence(homology_coeff_field=2, min_persistence=0)      # list of pairs(dimension, (birth, death))
             # 이거 문서 읽으면서 다시 봐보기
@@ -257,8 +258,8 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
             diff = np.dot(land_diff_birth, DiagFUNDiffBirth[order, :]) + np.dot(land_diff_death, DiagFUNDiffDeath[order, :])
             diff_list.append(diff)
 
-        landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32)
-        gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32)
+        landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32).to(device)
+        gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32).to(device)
         ctx.save_for_backward(gradient)
         return landscape, gradient
 
@@ -272,8 +273,9 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
 
 
 class PersistenceLandscapeLayer(nn.Module):
-    def __init__(self, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
+    def __init__(self, device, tseq=[0.5, 0.7, 0.9], K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
         super().__init__()
+        self.device = device
         self.tseq = np.array(tseq)
         self.K_max = K_max
         self.grid_size = grid_size
@@ -286,7 +288,7 @@ class PersistenceLandscapeLayer(nn.Module):
         Returns:
             landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
         """
-        return PersistenceLandscapeCustomGrad.apply(inputs, self.tseq, self.K_max, self.grid_size, self.dimensions)[0]
+        return PersistenceLandscapeCustomGrad.apply(inputs, self.device, self.tseq, self.K_max, self.grid_size, self.dimensions)[0]
 
 
 class WeightedAvgLandscapeLayer(nn.Module):
@@ -328,10 +330,10 @@ class GThetaLayer(nn.Module):
 
 
 class TopoWeightLayer(nn.Module):
-    def __init__(self, out_features, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2, tseq=[0.5, 0.7, 0.9], K_max=2, dimensions=[0, 1]):
+    def __init__(self, out_features, device, m0=0.3, lims=[[1,-1], [-1,1]], size=(28, 28), r=2, tseq=[0.5, 0.7, 0.9], K_max=2, dimensions=[0, 1]):
         super().__init__()
-        self.dtm_layer = DTMLayer(m0, lims, size, r)
-        self.landscape_layer = PersistenceLandscapeLayer(tseq, K_max, self.dtm_layer.grid_size, dimensions)
+        self.dtm_layer = DTMLayer(device, m0, lims, size, r)
+        self.landscape_layer = PersistenceLandscapeLayer(device, tseq, K_max, self.dtm_layer.grid_size, dimensions)
         self.avg_layer = WeightedAvgLandscapeLayer(K_max, dimensions)
         self.gtheta_layer = GThetaLayer(out_features, tseq, dimensions)
 

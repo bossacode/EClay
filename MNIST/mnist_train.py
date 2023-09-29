@@ -29,7 +29,7 @@ class MNISTCustomDataset(Dataset):
 
 
 class MNISTCNN_Pi(nn.Module):
-    def __init__(self, out_features=32, kernel_size=3,):
+    def __init__(self, device, out_features=32, kernel_size=3,):
         super().__init__()
         self.conv_layer = nn.Sequential(nn.Conv2d(1, out_features, kernel_size=3, padding=1),
                                         nn.ReLU(),
@@ -37,10 +37,10 @@ class MNISTCNN_Pi(nn.Module):
                                         nn.ReLU(),
                                         nn.Flatten())
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                          TopoWeightLayer(out_features, m0=0.05, tseq=np.linspace(0.06, 0.3, 25), K_max=2),
+                                          TopoWeightLayer(out_features, device, m0=0.05, tseq=np.linspace(0.06, 0.3, 25), K_max=2),
                                           nn.ReLU())
         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                          TopoWeightLayer(out_features, m0=0.2, tseq=np.linspace(0.14, 0.4, 27), K_max=3),
+                                          TopoWeightLayer(out_features, device, m0=0.2, tseq=np.linspace(0.14, 0.4, 27), K_max=3),
                                           nn.ReLU())
         self.linear_layer = nn.Sequential(nn.Linear(784+out_features+out_features, 64),
                                           nn.ReLU(),
@@ -147,19 +147,19 @@ for i in range(len_cn):
         val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
 
         torch.manual_seed(rand_seed_list[n_sim])
-        model = MNISTCNN_Pi().to(device)
+        model = MNISTCNN_Pi(device).to(device)
         optim = Adam(model.parameters(), lr)
         # scheduler and earlystopping
         min_loss_1 = 100
         for n_epoch in range(epoch):
             print(f'Model: {model.__class__}')
-            print(f"Epoch: [{n_epoch} / {epoch}]")
+            print(f"Epoch: [{n_epoch+1} / {epoch}]")
             print("-"*30)
             train_loss = train(model, train_dataloader, loss_fn, optim, device)
             val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
             if val_loss < min_loss_1:
                 min_loss_1 = val_loss
-                torch.save(model.state_dict(), './pllayCNNweight' + corrupt_prob_list[i] + '_' + noise_prob_list[i] + '.pt')
+                torch.save(model.state_dict(), './pllayCNNweight' + file_cn_list[i] + '.pt')
 
         # baseline
         torch.manual_seed(rand_seed_list[n_sim])
@@ -174,4 +174,4 @@ for i in range(len_cn):
             val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
             if val_loss < min_loss_2:
                 min_loss_2 = val_loss
-                torch.save(model.state_dict(), './CNNweight' + corrupt_prob_list[i] + '_' + noise_prob_list[i] + '.pt')
+                torch.save(model.state_dict(), './CNNweight' + file_cn_list[i] + '.pt')
