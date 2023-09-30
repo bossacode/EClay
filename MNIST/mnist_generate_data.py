@@ -14,15 +14,15 @@ def corrupt_noise(X, corrupt_prob, noise_prob):
     return X_corrupt_noise
 
 
-def mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir='./generated_data/'):
+def mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir="./generated_data/"):
     # train data shape: (60000,28,28)
-    train_data = MNIST(root='./',
+    train_data = MNIST(root="./",
                        train=True,
                        download=True,
                        transform=ToTensor())
     
     # test data shape: (10000,28,28) 
-    test_data = MNIST(root='./',
+    test_data = MNIST(root="./",
                       train=False,
                       download=True,
                       transform=ToTensor())
@@ -54,18 +54,17 @@ def mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_fi
         torch.save((x_train_noise, x_test_noise), dir + x_file_list[i])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     
     len_cn = len(corrupt_prob_list)
     file_cn_list = [None] * len_cn
     for i in range(len_cn):
-        file_cn_list[i] = str(int(corrupt_prob_list[i] * 100)).zfill(2) + \
-            '_' + str(int(noise_prob_list[i] * 100)).zfill(2)
+        file_cn_list[i] = str(int(corrupt_prob_list[i] * 100)).zfill(2) + "_" + str(int(noise_prob_list[i] * 100)).zfill(2)
         
-    x_file_list = ['mnist_x_' + file_cn_list[i] + '.pt' for i in range(len_cn)]
-    y_file = 'mnist_y.pt'
+    x_file_list = ["mnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+    y_file = "mnist_y.pt"
 
     N = 1000
 
