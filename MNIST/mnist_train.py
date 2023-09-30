@@ -5,9 +5,10 @@ from torch.optim import Adam
 import numpy as np
 from sklearn.model_selection import train_test_split
 from pllay import TopoWeightLayer
+import os
 
 
-class MNISTCustomDataset(Dataset):
+class MnistTrainValDataset(Dataset):
     def __init__(self, x_dir, y_dir, train=True, random_seed=1, val_size=0.3):
         self.train = train
         x_train, x_test = torch.load(x_dir)
@@ -28,7 +29,7 @@ class MNISTCustomDataset(Dataset):
             return self.x_val[ind], self.y_val[ind] # validation data
 
 
-class MNISTCNN_Pi(nn.Module):
+class MnistCnn_Pi(nn.Module):
     def __init__(self, device, out_features=32, kernel_size=3,):
         super().__init__()
         self.conv_layer = nn.Sequential(nn.Conv2d(1, out_features, kernel_size=3, padding=1),
@@ -55,7 +56,7 @@ class MNISTCNN_Pi(nn.Module):
         out = self.linear_layer(x_3)
         return out
 
-class CNN(nn.Module):
+class MnistCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_layer = nn.Sequential(nn.Conv2d(1,32,kernel_size=3,padding=1),
@@ -116,6 +117,8 @@ lr = 0.001
 loss_fn = nn.CrossEntropyLoss()
 batch_size = 16
 epoch = 100
+min_delta = 0.003   # min value to be considered as improvement in loss
+patience = 3        # used for earlystopping
 
 corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
 noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -132,6 +135,8 @@ ntimes = 20     # number of repetition for simulation of each model
 torch.manual_seed(123)
 rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # seed used for train_test split
 
+if not os.path.exists('/checkpoint'):
+    os.makedirs('/checkpoint')
 
 for i in range(len_cn):
     print(f"Corruption rate: {corrupt_prob_list[i]}")
@@ -141,37 +146,58 @@ for i in range(len_cn):
     for n_sim in range(ntimes):
         print(f"Simulation: [{n_sim} / {ntimes}]")
         print("-"*30)
-        train_dataset = MNISTCustomDataset(x_dir, y_dir, train=True, random_seed=rand_seed_list[n_sim])
-        val_dataset = MNISTCustomDataset(x_dir, y_dir, train=False, random_seed=rand_seed_list[n_sim])
+        train_dataset = MnistTrainValDataset(x_dir, y_dir, train=True, random_seed=rand_seed_list[n_sim])
+        val_dataset = MnistTrainValDataset(x_dir, y_dir, train=False, random_seed=rand_seed_list[n_sim])
         train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
         val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
 
+        # train CNN + Pllay(i)
         torch.manual_seed(rand_seed_list[n_sim])
-        model = MNISTCNN_Pi(device).to(device)
+        model = MnistCnn_Pi(device).to(device)
         optim = Adam(model.parameters(), lr)
-        # scheduler and earlystopping
-        min_loss_1 = 100
+        best_loss_pllay = float('inf')
+        early_stop_counter_pllay = 0
         for n_epoch in range(epoch):
             print(f'Model: {model.__class__}')
             print(f"Epoch: [{n_epoch+1} / {epoch}]")
             print("-"*30)
             train_loss = train(model, train_dataloader, loss_fn, optim, device)
             val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
-            if val_loss < min_loss_1:
-                min_loss_1 = val_loss
-                torch.save(model.state_dict(), './pllayCNNweight' + file_cn_list[i] + '.pt')
+            
+            # early stopping 
+            if (best_loss_pllay - val_loss) >= min_delta:
+                best_loss_pllay = val_loss
+                early_stop_counter_pllay = 0
+                torch.save(model.state_dict(), './checkpoint/pllayCNNweight' + file_cn_list[i] + '.pt')
+            else:
+                early_stop_counter_pllay += 1
+                if early_stop_counter_pllay == patience:
+                    print("Early Stopping at Epoch: ", n_epoch)
+                    print("Best Validation Loss: ", best_loss_pllay)
+                    break
 
-        # baseline
+
+        # train baseline CNN
         torch.manual_seed(rand_seed_list[n_sim])
-        model = MNISTCNN_Pi().to(device)
+        model = MnistCNN.to(device)
         optim = Adam(model.parameters(), lr)
-        min_loss_2 = 100
+        best_loss_cnn = float('inf')
+        early_stop_counter_cnn = 0
         for n_epoch in range(epoch):
             print(f'Model: {model.__class__}')
             print(f"Epoch: [{n_epoch} / {epoch}]")
             print("-"*30)
             train_loss = train(model, train_dataloader, loss_fn, optim, device)
             val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
-            if val_loss < min_loss_2:
-                min_loss_2 = val_loss
-                torch.save(model.state_dict(), './CNNweight' + file_cn_list[i] + '.pt')
+            
+            # early stopping 
+            if (best_loss_cnn - val_loss) >= min_delta:
+                best_loss_cnn = val_loss
+                early_stop_counter_cnn = 0
+                torch.save(model.state_dict(), './checkpoint/CNNweight' + file_cn_list[i] + '.pt')
+            else:
+                early_stop_counter_cnn += 1
+                if early_stop_counter_cnn == patience:
+                    print("Early Stopping at Epoch:", n_epoch)
+                    print("Best Validation Loss: ", best_loss_cnn)
+                    break
