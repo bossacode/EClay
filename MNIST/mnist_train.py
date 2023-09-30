@@ -5,6 +5,8 @@ from torch.optim import Adam
 import numpy as np
 from sklearn.model_selection import train_test_split
 from pllay import TopoWeightLayer
+from collections import defaultdict
+import json
 import os
 
 
@@ -127,9 +129,9 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
     batch_size = 16
     epoch = 100
-    ntimes = 20     # number of repetition for simulation of each model
+    ntimes = 20         # number of repetition for simulation of each model
     min_delta = 0.003   # min value to be considered as improvement in loss
-    patience = 3        # used for earlystopping
+    patience = 5        # used for earlystopping
 
     corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -141,100 +143,74 @@ if __name__ == "__main__":
     y_dir = "./generated_data/mnist_y.pt"
 
     torch.manual_seed(123)
-    rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # seed used for train_test split
+    rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # seed used to create different train/val split for each simulation
+    model_list = [MnistCnn_Pi, MnistCnn]
+    weight_dir_list = ["./weights/pCNN", "./weights/CNN"]
 
-    if not os.path.exists("./checkpoints_pCNN/"):
-        os.makedirs("./checkpoints_pCNN/")
+    info_dict = {cn_prob:None for cn_prob in file_cn_list}   # information of (convergence rate, accuracy, loss) for all models, simulations and corrupt/noise prob
 
-    if not os.path.exists("./checkpoints_CNN/"):
-        os.makedirs("./checkpoints_CNN/")
-
+    # train
+    # loop over data with different corruption/noise probability
     for cn in range(len_cn):
+        print("-"*30)
         print(f"Corruption rate: {corrupt_prob_list[cn]}")
         print(f"Noise rate: {noise_prob_list[cn]}")
-        print("-"*30)    
+        print("-"*30)
         x_dir = x_dir_list[cn]
+        info = defaultdict(list)    # information of (convergence rate, accuracy, loss) for all models and simulations
+        
+        # loop over number of simulations
         for n_sim in range(ntimes):
-            print(f"Simulation: [{n_sim+1} / {ntimes}]")
+            print(f"\nSimulation: [{n_sim+1} / {ntimes}]")
             print("-"*30)
             train_dataset = MnistCustomDataset(x_dir, y_dir, mode="train", random_seed=rand_seed_list[n_sim])
             val_dataset = MnistCustomDataset(x_dir, y_dir, mode="val", random_seed=rand_seed_list[n_sim])
             train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
 
-            # train CNN + Pllay(i)
-            if not os.path.exists(f"./checkpoints_pCNN/sim{n_sim+1}/"):
-                os.makedirs(f"./checkpoints_pCNN/sim{n_sim+1}/")
-            torch.manual_seed(rand_seed_list[n_sim])
-            model = MnistCnn_Pi().to(device)
-            optim = Adam(model.parameters(), lr)
-            best_loss_pllay = float("inf")
-            early_stop_counter_pllay = 0
-            for n_epoch in range(epoch):
-                print(f"Model: {model.__class__}")
-                print(f"Epoch: [{n_epoch+1} / {epoch}]")
-                print("-"*30)
-                train_loss = train(model, train_dataloader, loss_fn, optim, device)
-                val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
-                
-                # early stopping 
-                if val_loss < best_loss_pllay:
-                    torch.save(model.state_dict(), f"./checkpoints_pCNN/sim{n_sim+1}/pCNNweight" + file_cn_list[cn] + ".pt")
-                    if (best_loss_pllay - val_loss) < min_delta:  # if loss improvement is below min_delta, it's not considered as improvement
-                        early_stop_counter_cnn += 1
-                        if early_stop_counter_cnn == patience:
+            
+            # loop over different models
+            for MODEL, weight_dir in zip(model_list, weight_dir_list):
+
+                if not os.path.exists(weight_dir + "/" + file_cn_list[cn]):
+                    os.makedirs(weight_dir + "/" +  file_cn_list[cn])
+
+                torch.manual_seed(rand_seed_list[n_sim])
+                model = MODEL().to(device)
+                optim = Adam(model.parameters(), lr)
+                best_loss = float("inf")
+                best_acc = None
+                early_stop_counter = 0
+
+                # loop over epoch
+                for n_epoch in range(epoch):
+                    print(f"Model: {MODEL.__name__}")
+                    print(f"Epoch: [{n_epoch+1} / {epoch}]")
+                    print("-"*30)
+                    train_loss = train(model, train_dataloader, loss_fn, optim, device)
+                    val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
+                    
+                    # early stopping (if loss improvement is below min_delta, it's not considered as improvement)
+                    if (best_loss - val_loss) >= min_delta:
+                        early_stop_counter = 0
+                        best_loss = val_loss
+                        best_acc = val_acc
+                        torch.save(model.state_dict(), weight_dir + "/" + file_cn_list[cn] + "/" + f"sim{n_sim+1}.pt")
+                    else:
+                        early_stop_counter += 1
+                        if early_stop_counter == patience:
+                            info[MODEL.__name__].append({'sim' + str(n_sim):(n_epoch+1, best_acc, best_loss)})
                             print("-"*30)
-                            print("Early Stopping at Epoch:", n_epoch)
-                            print("Best Validation Loss: ", val_loss)
+                            print(f"Early Stopping at Epoch: {[{n_epoch+1} / {epoch}]}")
+                            print("Best Validation Accuracy: ", best_acc)
+                            print("Best Validation Loss: ", best_loss)
                             print("-"*30)
                             break
-                    else:
-                        early_stop_counter_cnn = 0
-                    best_loss_pllay = val_loss
-                else:
-                    early_stop_counter_cnn += 1
-                    if early_stop_counter_cnn == patience:
-                        print("-"*30)
-                        print("Early Stopping at Epoch:", n_epoch)
-                        print("Best Validation Loss: ", best_loss_pllay)
-                        print("-"*30)
-                        break
+                print("\n"*2)
+        info_dict[file_cn_list[cn]] = info
 
-
-            # train baseline CNN
-            if not os.path.exists(f"./checkpoints_CNN/sim{n_sim+1}/"):
-                os.makedirs(f"./checkpoints_CNN/sim{n_sim+1}/")
-            torch.manual_seed(rand_seed_list[n_sim])
-            model = MnistCnn.to(device)
-            optim = Adam(model.parameters(), lr)
-            best_loss_cnn = float("inf")
-            early_stop_counter_cnn = 0
-            for n_epoch in range(epoch):
-                print(f"Model: {model.__class__}")
-                print(f"Epoch: [{n_epoch} / {epoch}]")
-                print("-"*30)
-                train_loss = train(model, train_dataloader, loss_fn, optim, device)
-                val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
-                
-                # early stopping 
-                if val_loss < best_loss_cnn:
-                    torch.save(model.state_dict(), f"./checkpoints_CNN/sim{n_sim+1}/CNNweight" + file_cn_list[cn] + ".pt")
-                    if (best_loss_cnn - val_loss) < min_delta:  # if loss improvement is below min_delta, it's not considered as improvement
-                        early_stop_counter_cnn += 1
-                        if early_stop_counter_cnn == patience:
-                            print("-"*30)
-                            print("Early Stopping at Epoch:", n_epoch)
-                            print("Best Validation Loss: ", val_loss)
-                            print("-"*30)
-                            break
-                    else:
-                        early_stop_counter_cnn = 0
-                    best_loss_cnn = val_loss
-                else:
-                    early_stop_counter_cnn += 1
-                    if early_stop_counter_cnn == patience:
-                        print("-"*30)
-                        print("Early Stopping at Epoch:", n_epoch)
-                        print("Best Validation Loss: ", best_loss_cnn)
-                        print("-"*30)
-                        break
+    # save information file
+    with open("./info.json", "w", encoding="utf-8") as f:
+        json.dump(info_dict, f, indent="\t")
+    
+    print(info_dict)
