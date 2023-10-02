@@ -57,8 +57,7 @@ class MnistCnn_Pi(nn.Module):
                                           nn.ReLU())
         self.linear_layer = nn.Sequential(nn.Linear(784+out_features+out_features, 64),
                                           nn.ReLU(),
-                                          nn.Linear(64, 10),
-                                          nn.Softmax(-1))
+                                          nn.Linear(64, 10))
 
     def forward(self, input):
         x = self.conv_layer(input)
@@ -79,8 +78,7 @@ class MnistCnn(nn.Module):
                                         nn.Flatten())
         self.linear_layer = nn.Sequential(nn.Linear(784, 64),
                                             nn.ReLU(),
-                                            nn.Linear(64, 10),
-                                            nn.Softmax(-1))
+                                            nn.Linear(64, 10))
     
     def forward(self, input):
         x = self.conv_layer(input)
@@ -103,7 +101,6 @@ def train(model, dataloader, loss_fn, optimizer, device):
         if batch % 10 == 0:
             loss, current = loss.item(), (batch+1) * len(y)
             print(f"Training loss: {loss:>7f} [{current:>3d}/{data_size:>3d}]")
-    return loss
 
 
 def eval(model, dataloader, loss_fn, device):
@@ -119,7 +116,7 @@ def eval(model, dataloader, loss_fn, device):
     loss /= data_size
     correct /= data_size
     accuracy = correct * 100
-    print(f"Test error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    print(f"Validation error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     return loss, accuracy
 
 
@@ -131,7 +128,7 @@ if __name__ == "__main__":
     epoch = 100
     ntimes = 20         # number of repetition for simulation of each model
     min_delta = 0.003   # min value to be considered as improvement in loss
-    patience = 5        # used for earlystopping
+    patience = 3        # used for earlystopping
 
     corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -143,11 +140,8 @@ if __name__ == "__main__":
     y_dir = "./generated_data/mnist_y.pt"
 
     torch.manual_seed(123)
-    rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # seed used to create different train/val split for each simulation
+    rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to fix initial model weights and create different train/val split for each simulation
     model_list = [MnistCnn_Pi, MnistCnn]
-    weight_dir_list = ["./weights/pCNN", "./weights/CNN"]
-
-    info_dict = {cn_prob:None for cn_prob in file_cn_list}   # information of (convergence rate, accuracy, loss) for all models, simulations and corrupt/noise prob
 
     # train
     # loop over data with different corruption/noise probability
@@ -156,38 +150,37 @@ if __name__ == "__main__":
         print(f"Corruption rate: {corrupt_prob_list[cn]}")
         print(f"Noise rate: {noise_prob_list[cn]}")
         print("-"*30)
-        x_dir = x_dir_list[cn]
-        info = defaultdict(list)    # information of (convergence rate, accuracy, loss) for all models and simulations
+        train_info = defaultdict(list)    # defaultdict to store train info of (number of epochs till convergence, accuracy, loss)
         
         # loop over number of simulations
         for n_sim in range(ntimes):
             print(f"\nSimulation: [{n_sim+1} / {ntimes}]")
             print("-"*30)
-            train_dataset = MnistCustomDataset(x_dir, y_dir, mode="train", random_seed=rand_seed_list[n_sim])
-            val_dataset = MnistCustomDataset(x_dir, y_dir, mode="val", random_seed=rand_seed_list[n_sim])
+            train_dataset = MnistCustomDataset(x_dir_list[cn], y_dir, mode="train", random_seed=rand_seed_list[n_sim])
+            val_dataset = MnistCustomDataset(x_dir_list[cn], y_dir, mode="val", random_seed=rand_seed_list[n_sim])
             train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
-
             
             # loop over different models
-            for MODEL, weight_dir in zip(model_list, weight_dir_list):
-
-                if not os.path.exists(weight_dir + "/" + file_cn_list[cn]):
-                    os.makedirs(weight_dir + "/" +  file_cn_list[cn])
-
+            for MODEL in model_list:
+                weight_dir = f"./saved_weights/mnist_x_{file_cn_list[cn]}/{MODEL.__name__}"     # directory path to store trained model weights
+                if not os.path.exists(weight_dir):
+                    os.makedirs(weight_dir)
+                
                 torch.manual_seed(rand_seed_list[n_sim])
                 model = MODEL().to(device)
                 optim = Adam(model.parameters(), lr)
                 best_loss = float("inf")
                 best_acc = None
+                best_epoch = None
                 early_stop_counter = 0
-
+                
                 # loop over epoch
                 for n_epoch in range(epoch):
                     print(f"Model: {MODEL.__name__}")
                     print(f"Epoch: [{n_epoch+1} / {epoch}]")
                     print("-"*30)
-                    train_loss = train(model, train_dataloader, loss_fn, optim, device)
+                    train(model, train_dataloader, loss_fn, optim, device)
                     val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
                     
                     # early stopping (if loss improvement is below min_delta, it's not considered as improvement)
@@ -195,22 +188,21 @@ if __name__ == "__main__":
                         early_stop_counter = 0
                         best_loss = val_loss
                         best_acc = val_acc
-                        torch.save(model.state_dict(), weight_dir + "/" + file_cn_list[cn] + "/" + f"sim{n_sim+1}.pt")
+                        best_epoch = n_epoch
+                        torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")
                     else:
                         early_stop_counter += 1
                         if early_stop_counter == patience:
-                            info[MODEL.__name__].append({'sim' + str(n_sim):(n_epoch+1, best_acc, best_loss)})
+                            train_info[MODEL.__name__].append({"sim" + str(n_sim):(best_epoch+1, best_acc, best_loss)})
                             print("-"*30)
-                            print(f"Early Stopping at Epoch: {[{n_epoch+1} / {epoch}]}")
+                            print(f"Epochs: [{best_epoch+1} / {epoch}]")
                             print("Best Validation Accuracy: ", best_acc)
                             print("Best Validation Loss: ", best_loss)
                             print("-"*30)
                             break
                 print("\n"*2)
-        info_dict[file_cn_list[cn]] = info
-
-    # save information file
-    with open("./info.json", "w", encoding="utf-8") as f:
-        json.dump(info_dict, f, indent="\t")
-    
-    print(info_dict)
+        
+        # save train info as json file
+        for MODEL in model_list:
+            with open(f"./train_info/mnist_x_{file_cn_list[cn]}/{MODEL.__name__}_train_info.json", "w", encoding="utf-8") as f:
+                json.dump(train_info[MODEL.__name__], f, indent="\t")
