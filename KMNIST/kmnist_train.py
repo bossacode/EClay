@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import json
 import os
+from collections import defaultdict
 from kmnist_models import ResNet18, ResNet34
 
 
@@ -80,11 +81,12 @@ if __name__ == "__main__":
     lr = 0.01
     weight_decay = 0.0001
     loss_fn = nn.CrossEntropyLoss()
-    batch_size = 16
+    batch_size = 32
     epoch = 100
     ntimes = 20         # number of repetition for simulation of each model
     min_delta = 0.003   # min value to be considered as improvement in loss
-    patience = 5        # used for earlystopping
+    es_patience = 4     # used for earlystopping
+    sch_patience = 2    # used for lr scheduler
 
     # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -95,8 +97,8 @@ if __name__ == "__main__":
     file_cn_list = [None] * len_cn
     for cn in range(len_cn):
         file_cn_list[cn] = str(int(corrupt_prob_list[cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[cn] * 100)).zfill(2)
-    x_dir_list = ["./generated_data/mnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_dir = "./generated_data/mnist_y.pt"
+    x_dir_list = ["./generated_data/kmnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+    y_dir = "./generated_data/kmnist_y.pt"
 
     torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
@@ -122,15 +124,15 @@ if __name__ == "__main__":
             
             # loop over different models
             for model in model_list:
-                train_info = []    # list to store train info of (epoch, accuracy, loss)}
+                train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
 
-                weight_dir = f"./saved_weights/mnist_x_{file_cn_list[cn]}/{model._get_name()}"     # directory path to store trained model weights
+                weight_dir = f"./saved_weights/kmnist_x_{file_cn_list[cn]}/{model._get_name()}"     # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
                     os.makedirs(weight_dir)
                 
                 model = model.to(device)
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
-                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=2)
+                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=es_patience)
 
                 best_loss = float("inf")
                 best_acc = None
@@ -143,33 +145,37 @@ if __name__ == "__main__":
                     print(f"Epoch: [{n_epoch+1} / {epoch}]")
                     print("-"*30)
                     train(model, train_dataloader, loss_fn, optim, device)
-                    train_loss, train_acc = eval(model, train_dataloader, loss_fn, device)
-                    val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
+                    train_loss, train_acc = eval(model, train_dataloader, loss_fn, device, mode="Train")
+                    val_loss, val_acc = eval(model, val_dataloader, loss_fn, device, mode="Validation")
                     
                     scheduler.step(val_loss)
 
-                    train_info.append((n_epoch+1, val_acc, val_loss))
+                    train_info['epoch'].append(n_epoch+1)
+                    train_info['train loss'].append(train_loss)
+                    train_info['val loss'].append(val_loss)
+                    train_info['train acc'].append(train_acc)
+                    train_info['val acc'].append(val_acc)
 
                     # early stopping (if loss improvement is below min_delta, it's not considered as improvement)
-                    # if (best_loss - val_loss) >= min_delta:
-                    #     early_stop_counter = 0
-                    #     best_loss = val_loss
-                    #     best_acc = val_acc
-                    #     best_epoch = n_epoch
-                    #     torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")
-                    # else:
-                    #     early_stop_counter += 1
-                    #     if early_stop_counter == patience:
-                    #         print("-"*30)
-                    #         print(f"Epochs: [{best_epoch+1} / {epoch}]")
-                    #         print(f"Best Validation Accuracy: {(best_acc):>0.1f}%")
-                    #         print(f"Best Validation Loss: {best_loss:>8f}")
-                    #         print("-"*30)
-                    #         break
+                    if (best_loss - val_loss) >= min_delta:
+                        early_stop_counter = 0
+                        best_loss = val_loss
+                        best_acc = val_acc
+                        best_epoch = n_epoch
+                        torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")
+                    else:
+                        early_stop_counter += 1
+                        if early_stop_counter > patience:
+                            print("-"*30)
+                            print(f"Epochs: [{best_epoch+1} / {epoch}]")
+                            print(f"Best Validation Accuracy: {(best_acc):>0.1f}%")
+                            print(f"Best Validation Loss: {best_loss:>8f}")
+                            print("-"*30)
+                            break
                 print("\n"*2)
         
                 # save train info as json file
-                train_info_dir = f"./train_info/mnist_x_{file_cn_list[cn]}/{model._get_name()}"
+                train_info_dir = f"./train_info/kmnist_x_{file_cn_list[cn]}/{model._get_name()}"
                 if not os.path.exists(train_info_dir):
                     os.makedirs(train_info_dir)
                 with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
