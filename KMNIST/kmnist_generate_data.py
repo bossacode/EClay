@@ -63,8 +63,8 @@ if __name__ == "__main__":
     for i in range(len_cn):
         file_cn_list[i] = str(int(corrupt_prob_list[i] * 100)).zfill(2) + "_" + str(int(noise_prob_list[i] * 100)).zfill(2)
         
-    x_file_list = ["mnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_file = "mnist_y.pt"
+    x_file_list = ["x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+    y_file = "y.pt"
 
     N = 1000
 

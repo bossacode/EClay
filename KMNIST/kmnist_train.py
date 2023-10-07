@@ -97,8 +97,8 @@ if __name__ == "__main__":
     file_cn_list = [None] * len_cn
     for cn in range(len_cn):
         file_cn_list[cn] = str(int(corrupt_prob_list[cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[cn] * 100)).zfill(2)
-    x_dir_list = ["./generated_data/kmnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_dir = "./generated_data/kmnist_y.pt"
+    x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+    y_dir = "./generated_data/y.pt"
 
     torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             for model in model_list:
                 train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
 
-                weight_dir = f"./saved_weights/kmnist_x_{file_cn_list[cn]}/{model._get_name()}"     # directory path to store trained model weights
+                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{model._get_name()}"     # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
                     os.makedirs(weight_dir)
                 
@@ -175,7 +175,7 @@ if __name__ == "__main__":
                 print("\n"*2)
         
                 # save train info as json file
-                train_info_dir = f"./train_info/kmnist_x_{file_cn_list[cn]}/{model._get_name()}"
+                train_info_dir = f"./train_info/x_{file_cn_list[cn]}/{model._get_name()}"
                 if not os.path.exists(train_info_dir):
                     os.makedirs(train_info_dir)
                 with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
