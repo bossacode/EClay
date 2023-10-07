@@ -84,7 +84,7 @@ if __name__ == "__main__":
     batch_size = 32
     epoch = 100
     ntimes = 20         # number of repetition for simulation of each model
-    min_delta = 0.003   # min value to be considered as improvement in loss
+    threshold = 0.005   # min value to be considered as improvement in loss
     es_patience = 4     # used for earlystopping
     sch_patience = 2    # used for lr scheduler
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
     # model_list = [ResNet18(), PllayResNet18(), ResNet34(), PllayResNet34()]
-    model_list = [ResNet18(), ResNet34()]
+    model_list = [ResNet18, ResNet34]
 
     # train
     # loop over data with different corruption/noise probability
@@ -123,21 +123,20 @@ if __name__ == "__main__":
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
             
             # loop over different models
-            for model in model_list:
-                train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
+            for MODEL in model_list:                
+                model = MODEL().to(device)
+                optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
+                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=sch_patience, threshold=threshold)
 
-                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{model._get_name()}"     # directory path to store trained model weights
+                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{model._get_name()}"    # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
                     os.makedirs(weight_dir)
-                
-                model = model.to(device)
-                optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
-                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=sch_patience)
 
                 best_loss = float("inf")
                 best_acc = None
                 best_epoch = None
                 early_stop_counter = 0
+                train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
                 
                 # loop over epoch
                 for n_epoch in range(epoch):
@@ -156,8 +155,8 @@ if __name__ == "__main__":
                     train_info['train acc'].append(train_acc)
                     train_info['val acc'].append(val_acc)
 
-                    # early stopping (if loss improvement is below min_delta, it's not considered as improvement)
-                    if (best_loss - val_loss) >= min_delta:
+                    # early stopping (if loss improvement is below threshold, it's not considered as improvement)
+                    if (best_loss - val_loss) > threshold:
                         early_stop_counter = 0
                         best_loss = val_loss
                         best_acc = val_acc
