@@ -132,7 +132,7 @@ if __name__ == "__main__":
                 
                 model = model.to(device)
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
-                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=es_patience)
+                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=sch_patience)
 
                 best_loss = float("inf")
                 best_acc = None
@@ -165,7 +165,7 @@ if __name__ == "__main__":
                         torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")
                     else:
                         early_stop_counter += 1
-                        if early_stop_counter > patience:
+                        if early_stop_counter > es_patience:
                             print("-"*30)
                             print(f"Epochs: [{best_epoch+1} / {epoch}]")
                             print(f"Best Validation Accuracy: {(best_acc):>0.1f}%")
