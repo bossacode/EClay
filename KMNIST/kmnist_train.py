@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-import numpy as np
 from sklearn.model_selection import train_test_split
 import json
 import os
@@ -128,7 +127,7 @@ if __name__ == "__main__":
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
                 scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=sch_patience, threshold=threshold)
 
-                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{model._get_name()}"    # directory path to store trained model weights
+                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
                     os.makedirs(weight_dir)
 
@@ -140,7 +139,7 @@ if __name__ == "__main__":
                 
                 # loop over epoch
                 for n_epoch in range(epoch):
-                    print(f"Model: {model._get_name()}")
+                    print(f"Model: {MODEL.__name__}")
                     print(f"Epoch: [{n_epoch+1} / {epoch}]")
                     print("-"*30)
                     train(model, train_dataloader, loss_fn, optim, device)
@@ -150,10 +149,8 @@ if __name__ == "__main__":
                     scheduler.step(val_loss)
 
                     train_info['epoch'].append(n_epoch+1)
-                    train_info['train loss'].append(train_loss)
-                    train_info['val loss'].append(val_loss)
-                    train_info['train acc'].append(train_acc)
-                    train_info['val acc'].append(val_acc)
+                    train_info['train/val loss'].append((train_loss, val_loss))
+                    train_info['train/val acc'].append((train_acc, val_acc))
 
                     # early stopping (if loss improvement is below threshold, it's not considered as improvement)
                     if (best_loss - val_loss) > threshold:
@@ -161,21 +158,22 @@ if __name__ == "__main__":
                         best_loss = val_loss
                         best_acc = val_acc
                         best_epoch = n_epoch
-                        torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")
+                        torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")   # save model weights
                     else:
                         early_stop_counter += 1
-                        if early_stop_counter > es_patience:
+                        if early_stop_counter > es_patience:    # stop training if loss doesn't improve for es_patience + 1 epochs
                             print("-"*30)
                             print(f"Epochs: [{best_epoch+1} / {epoch}]")
                             print(f"Best Validation Accuracy: {(best_acc):>0.1f}%")
                             print(f"Best Validation Loss: {best_loss:>8f}")
                             print("-"*30)
                             break
-                print("\n"*2)
-        
+                
                 # save train info as json file
-                train_info_dir = f"./train_info/x_{file_cn_list[cn]}/{model._get_name()}"
+                train_info_dir = f"./train_info/x_{file_cn_list[cn]}/{MODEL.__name__}"
                 if not os.path.exists(train_info_dir):
                     os.makedirs(train_info_dir)
                 with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
                     json.dump(train_info, f, indent="\t")
+                
+                print("\n"*2)
