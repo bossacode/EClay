@@ -81,18 +81,24 @@ def eval(model, dataloader, loss_fn, device):
 
 
 if __name__ == "__main__":
+    # reproducibility
+    torch.manual_seed(123)
+    torch.backends.cudnn.benchmark = True
+    torch.use_deterministic_algorithms(True)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
     # hyperparameters
-    lr = 0.01
-    weight_decay = 0.0001
-    factor = 0.1        # factor to decay lr by when loss stagnates
+    ntimes = 20         # number of repetition for simulation of each model
+    epoch = 100
     loss_fn = nn.CrossEntropyLoss()
     batch_size = 32
-    epoch = 100
-    ntimes = 20         # number of repetition for simulation of each model
+    lr = 0.001
+    weight_decay = 0.0001
+    factor = 0.1        # factor to decay lr by when loss stagnates
     threshold = 0.005   # min value to be considered as improvement in loss
-    es_patience = 4     # used for earlystopping
-    sch_patience = 2    # used for lr scheduler
+    es_patience = 4     # earlystopping patience
+    sch_patience = 2    # lr scheduler patience
 
     # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -106,7 +112,6 @@ if __name__ == "__main__":
     x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
     y_dir = "./generated_data/y.pt"
 
-    torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
     # model_list = [ResNet18(), PllayResNet18(), ResNet34(), PllayResNet34()]
     model_list = [ResNet18, ResNet34]
