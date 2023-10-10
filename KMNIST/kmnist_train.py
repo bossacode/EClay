@@ -43,11 +43,14 @@ class KMNISTCustomDataset(Dataset):
 
 def train(model, dataloader, loss_fn, optimizer, device):
     data_size = len(dataloader.dataset)
+    running_avg_loss, correct = 0, 0
     model.train()
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
         y_pred = model(X)
         loss = loss_fn(y_pred, y)
+        running_avg_loss += (loss.item() * len(y))
+        correct += (y_pred.argmax(1) == y).sum().item()
 
         loss.backward()
         optimizer.step()
@@ -56,9 +59,12 @@ def train(model, dataloader, loss_fn, optimizer, device):
         if batch % 10 == 0:
             loss, current = loss.item(), (batch+1) * len(y)
             print(f"Training loss: {loss:>7f} [{current:>3d}/{data_size:>3d}]")
+    running_avg_loss /= data_size
+    running_acc = (correct / data_size) * 100
+    return running_avg_loss, running_acc
 
 
-def eval(model, dataloader, loss_fn, device, mode="Validation"):
+def eval(model, dataloader, loss_fn, device):
     data_size = len(dataloader.dataset)
     loss, correct = 0, 0
     model.eval()
@@ -69,16 +75,17 @@ def eval(model, dataloader, loss_fn, device, mode="Validation"):
             loss += (loss_fn(y_pred, y).item() * len(y))
             correct += (y_pred.argmax(1) == y).sum().item()
     loss /= data_size
-    correct /= data_size
-    accuracy = correct * 100
-    print(f"{mode} error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    accuracy = (correct / data_size) * 100
+    print(f"Validation/Test error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     return loss, accuracy
 
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # hyperparameters
     lr = 0.01
     weight_decay = 0.0001
+    factor = 0.1        # factor to decay lr by when loss stagnates
     loss_fn = nn.CrossEntropyLoss()
     batch_size = 32
     epoch = 100
@@ -125,7 +132,7 @@ if __name__ == "__main__":
             for MODEL in model_list:                
                 model = MODEL().to(device)
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
-                scheduler = ReduceLROnPlateau(optim, factor=0.1, patience=sch_patience, threshold=threshold)
+                scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
                 weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
@@ -142,9 +149,8 @@ if __name__ == "__main__":
                     print(f"Model: {MODEL.__name__}")
                     print(f"Epoch: [{n_epoch+1} / {epoch}]")
                     print("-"*30)
-                    train(model, train_dataloader, loss_fn, optim, device)
-                    train_loss, train_acc = eval(model, train_dataloader, loss_fn, device, mode="Train")
-                    val_loss, val_acc = eval(model, val_dataloader, loss_fn, device, mode="Validation")
+                    train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, device)
+                    val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
                     
                     scheduler.step(val_loss)
 
