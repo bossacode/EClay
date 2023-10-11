@@ -10,6 +10,12 @@ from collections import defaultdict
 from kmnist_models import ResNet18, ResNet34
 
 
+# for reproducibility (may degrade performance)
+torch.manual_seed(123)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+
+
 class KMNISTCustomDataset(Dataset):
     def __init__(self, x_dir, y_dir, mode="train", random_seed=1, val_size=0.3):
         """
@@ -81,11 +87,6 @@ def eval(model, dataloader, loss_fn, device):
 
 
 if __name__ == "__main__":
-    # reproducibility
-    torch.manual_seed(123)
-    torch.backends.cudnn.benchmark = True
-    torch.use_deterministic_algorithms(True)
-
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # hyperparameters
