@@ -90,7 +90,7 @@ def eval(model, dataloader, loss_fn, device):
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    ntimes = 5         # number of repetition for simulation of each model
+    ntimes = 10         # number of repetition for simulation of each model
     epoch = 100
     loss_fn = nn.CrossEntropyLoss()
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
                 early_stop_counter = 0
                 # train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
                 
-                writer = SummaryWriter(f"./runs/{file_cn_list[cn]}/{MODEL.__name__}/")
+                writer = SummaryWriter(f"./runs/{file_cn_list[cn]}/")
                 # loop over epoch
                 for n_epoch in range(epoch):
                     print(f"Model: {MODEL.__name__}")
@@ -167,8 +167,8 @@ if __name__ == "__main__":
                     # train_info['train/val loss'].append((train_loss, val_loss))
                     # train_info['train/val acc'].append((train_acc, val_acc))
 
-                    writer.add_scalars(f"loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
-                    writer.add_scalars(f"accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
+                    writer.add_scalars(f"{MODEL.__name__}/loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
+                    writer.add_scalars(f"{MODEL.__name__}/accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
                     writer.flush()
 
                     # early stopping (if loss improvement is below threshold, it's not considered as improvement)
