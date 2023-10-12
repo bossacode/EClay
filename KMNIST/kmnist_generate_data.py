@@ -14,7 +14,7 @@ def corrupt_noise(X, corrupt_prob, noise_prob):
     return X_corrupt_noise
 
 
-def mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir="./generated_data/"):
+def generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir="./generated_data/"):
     # train data shape: (60000,28,28)
     train_data = KMNIST(root="./raw_data",
                         train=True,
@@ -69,4 +69,4 @@ if __name__ == "__main__":
     N = 1000
 
     torch.manual_seed(123)
-    mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file)
+    generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file)
