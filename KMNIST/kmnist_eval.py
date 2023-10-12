@@ -51,7 +51,7 @@ if __name__ == "__main__":
                 weight_file = f"./saved_weights/x_{file_cn_list[cn]}/{MODEL.__name__}/sim{n_sim+1}.pt"     # file path to trained model weights
                 print(weight_file)
                 model = MODEL().to(device)
-                model.load_state_dict(torch.load(weight_file))
+                model.load_state_dict(torch.load(weight_file, map_location=device))
                 test_loss, test_acc = eval(model, test_dataloader, loss_fn, device)
 
                 test_info[i]['sim'].append(n_sim+1)
