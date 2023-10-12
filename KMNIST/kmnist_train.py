@@ -68,6 +68,7 @@ def train(model, dataloader, loss_fn, optimizer, device):
             print(f"Training loss: {loss:>7f} [{current:>3d}/{data_size:>3d}]")
     running_avg_loss /= data_size
     running_acc = (correct / data_size) * 100
+    print(f"Train error:\n Accuracy: {(running_acc):>0.1f}%, Avg loss: {running_avg_loss:>8f} \n")
     return running_avg_loss, running_acc
 
 
@@ -89,7 +90,7 @@ def eval(model, dataloader, loss_fn, device):
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    ntimes = 10         # number of repetition for simulation of each model
+    ntimes = 5         # number of repetition for simulation of each model
     epoch = 100
     loss_fn = nn.CrossEntropyLoss()
 
