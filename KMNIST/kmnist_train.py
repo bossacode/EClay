@@ -105,8 +105,8 @@ if __name__ == "__main__":
 
     # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    corrupt_prob_list = [0.0, 0.15]
-    noise_prob_list = [0.0, 0.15]
+    corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
+    noise_prob_list = [0.0, 0.1, 0.2, 0.3]
 
     len_cn = len(corrupt_prob_list)
     file_cn_list = [None] * len_cn
@@ -118,6 +118,8 @@ if __name__ == "__main__":
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
     # model_list = [ResNet18(), PllayResNet18(), ResNet34(), PllayResNet34()]
     model_list = [ResNet18, PllayResNet18]
+
+    run_name = "train_500_val_500"
 
     # train
     # loop over data with different corruption/noise probability
@@ -131,8 +133,8 @@ if __name__ == "__main__":
         for n_sim in range(ntimes):
             print(f"\nSimulation: [{n_sim+1} / {ntimes}]")
             print("-"*30)
-            train_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="train", random_seed=rand_seed_list[n_sim])
-            val_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="val", random_seed=rand_seed_list[n_sim])
+            train_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="train", random_seed=rand_seed_list[n_sim], val_size=0.5)
+            val_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="val", random_seed=rand_seed_list[n_sim], val_size=0.5)
             train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
             
@@ -142,7 +144,7 @@ if __name__ == "__main__":
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
                 scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
-                weight_dir = f"./saved_weights/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
+                weight_dir = f"./saved_weights/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
                 if not os.path.exists(weight_dir):
                     os.makedirs(weight_dir)
 
@@ -150,9 +152,9 @@ if __name__ == "__main__":
                 best_acc = None
                 best_epoch = None
                 early_stop_counter = 0
-                # train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
+                train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
                 
-                writer = SummaryWriter(f"./runs/{file_cn_list[cn]}/")
+                writer = SummaryWriter(f"./runs/{run_name}/{file_cn_list[cn]}/{MODEL.__name__}")
                 # loop over epoch
                 for n_epoch in range(epoch):
                     print(f"Model: {MODEL.__name__}")
@@ -162,13 +164,15 @@ if __name__ == "__main__":
                     val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
                     
                     scheduler.step(val_loss)
+                    
+                    # save train information
+                    train_info['epoch'].append(n_epoch+1)
+                    train_info['train/val loss'].append((train_loss, val_loss))
+                    train_info['train/val acc'].append((train_acc, val_acc))
 
-                    # train_info['epoch'].append(n_epoch+1)
-                    # train_info['train/val loss'].append((train_loss, val_loss))
-                    # train_info['train/val acc'].append((train_acc, val_acc))
-
-                    writer.add_scalars(f"{MODEL.__name__}/loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
-                    writer.add_scalars(f"{MODEL.__name__}/accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
+                    # write to tensorboard
+                    writer.add_scalars(f"loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
+                    writer.add_scalars(f"accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
                     writer.flush()
 
                     # early stopping (if loss improvement is below threshold, it's not considered as improvement)
@@ -189,10 +193,10 @@ if __name__ == "__main__":
                             break
                 
                 # save train info as json file
-                # train_info_dir = f"./train_info/x_{file_cn_list[cn]}/{MODEL.__name__}"
-                # if not os.path.exists(train_info_dir):
-                #     os.makedirs(train_info_dir)
-                # with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
-                #     json.dump(train_info, f, indent="\t")
+                train_info_dir = f"./train_info/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"
+                if not os.path.exists(train_info_dir):
+                    os.makedirs(train_info_dir)
+                with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
+                    json.dump(train_info, f, indent="\t")
                 
-                # print("\n"*2)
+                print("\n"*2)
