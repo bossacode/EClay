@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 from collections import defaultdict
-from kmnist_models import ResNet18, PllayResNet18
+from kmnist_models import ResNet18, PRNet18
 
 
 # for reproducibility (may degrade performance)
@@ -116,8 +116,8 @@ if __name__ == "__main__":
     y_dir = "./generated_data/y.pt"
 
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
-    # model_list = [ResNet18(), PllayResNet18(), ResNet34(), PllayResNet34()]
-    model_list = [ResNet18, PllayResNet18]
+    # model_list = [ResNet18(), PRNet18(), ResNet34(), PRNet34()]
+    model_list = [ResNet18, PRNet18]
 
     run_name = "train_500_val_500"
 

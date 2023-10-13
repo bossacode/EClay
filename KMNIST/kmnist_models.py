@@ -158,11 +158,11 @@ class ResNet34(ResNet):
         super().__init__(block, cfg, num_classes)
 
 
-class PllayResNet18(PllayResNet):
+class PRNet18(PllayResNet):
     def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], out_features=32, num_classes=10):
         super().__init__(block, cfg, out_features, num_classes)
 
 
-class PllayResNet34(PllayResNet):
+class PRNet34(PllayResNet):
     def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], out_features=32, num_classes=10):
         super().__init__(block, cfg, out_features, num_classes)
