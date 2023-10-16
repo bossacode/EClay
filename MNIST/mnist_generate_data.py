@@ -1,8 +1,8 @@
-import os
 import torch
 from torch.distributions import Binomial
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
+import os
 
 def corrupt_noise(X, corrupt_prob, noise_prob):
     X_corrupt = torch.where(Binomial(1, probs=corrupt_prob).sample(X.shape).bool(),
@@ -14,15 +14,15 @@ def corrupt_noise(X, corrupt_prob, noise_prob):
     return X_corrupt_noise
 
 
-def mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir="./generated_data/"):
+def generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, dir="./generated_data/"):
     # train data shape: (60000,28,28)
-    train_data = MNIST(root="./",
+    train_data = MNIST(root="./raw_data",
                        train=True,
                        download=True,
                        transform=ToTensor())
     
     # test data shape: (10000,28,28) 
-    test_data = MNIST(root="./",
+    test_data = MNIST(root="./raw_data",
                       train=False,
                       download=True,
                       transform=ToTensor())
@@ -63,10 +63,10 @@ if __name__ == "__main__":
     for i in range(len_cn):
         file_cn_list[i] = str(int(corrupt_prob_list[i] * 100)).zfill(2) + "_" + str(int(noise_prob_list[i] * 100)).zfill(2)
         
-    x_file_list = ["mnist_x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_file = "mnist_y.pt"
+    x_file_list = ["x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+    y_file = "y.pt"
 
     N = 1000
 
     torch.manual_seed(123)
-    mnist_generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file)
+    generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file)
