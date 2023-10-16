@@ -318,7 +318,6 @@ class WeightedAvgLandscapeLayer(nn.Module):
         """
         self.land_weight = nn.Parameter(torch.tensor(1/K_max).repeat(1, len(dimensions), 1, K_max)) # weight of landscapes initialized as uniform
         self.softmax = nn.Softmax(dim=-1)
-        self.flatten = nn.Flatten()
 
     def forward(self, input):
         """
@@ -326,11 +325,10 @@ class WeightedAvgLandscapeLayer(nn.Module):
             input: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
 
         Returns:
-            output: Tensor of shape [batch_size, (len_dim*len_tseq)]
+            output: Tensor of shape [batch_size, len_dim, len_tseq]
         """
         weight = self.softmax(self.land_weight)
-        weighted_avg_land = torch.sum(input * weight, dim=-1)   # weighted average of landscapes
-        output = self.flatten(weighted_avg_land)
+        output = torch.sum(input * weight, dim=-1)   # weighted average of landscapes
         return output
     
 
@@ -344,17 +342,19 @@ class GThetaLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
+        self.flatten = nn.Flatten()
         self.g_layer = nn.Linear(len(dimensions)*len(tseq), out_features)
 
     def forward(self, input):
         """
         Args:
-            input: Tensor of shape [batch_size, (len_dim*len_tseq)]
+            input: Tensor of shape [batch_size, len_dim, len_tseq]
 
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        output = self.g_layer(input)
+        x = self.flatten(input)
+        output = self.g_layer(x)
         return output
 
 
@@ -558,17 +558,19 @@ class AdaptiveGThetaLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
+        self.flatten()
         self.g_layer = nn.Linear(len(dimensions)*T + 2, out_features)
 
     def forward(self, input, t_min_max):
         """
         Args:
-            input: Tensor of shape [batch_size, (len_dim*len_tseq)]
+            input: Tensor of shape [batch_size, len_dim, len_tseq]
             t_min_max: Tensor of shape [batch_size, 2]
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        x = torch.concat((input, t_min_max), dim=-1)
+        x = self.flatten(input)
+        x = torch.concat((x, t_min_max), dim=-1)
         output = self.g_layer(x)
         return output
 
