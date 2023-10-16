@@ -165,9 +165,9 @@ class AdaptivePllayResNet(nn.Module):
                                 nn.Flatten())
 
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=100, m0=0.05, K_max=2))    # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2))    # hyperparameter 수정
         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=100, m0=0.2, K_max=3))     # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.2, K_max=3))     # hyperparameter 수정
         
         self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
         
