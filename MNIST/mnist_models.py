@@ -5,7 +5,7 @@ from pllay import TopoWeightLayer, AdaptiveTopoWeightLayer
 
 
 class PllayMLP(nn.Module):
-    def __init__(self, out_features, num_classes):
+    def __init__(self, out_features=32, num_classes=10):
         super().__init__()
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
                                         TopoWeightLayer(out_features, tseq=np.linspace(0.06, 0.3, 25), m0=0.05, K_max=2))    # hyperparameter 수정
@@ -27,7 +27,7 @@ class PllayMLP(nn.Module):
 
 
 class AdaptivePllayMLP(nn.Module):
-    def __init__(self, out_features, num_classes):
+    def __init__(self, out_features=32, num_classes=10):
         super().__init__()
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
                                         AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2))    # hyperparameter 수정
@@ -50,7 +50,7 @@ class AdaptivePllayMLP(nn.Module):
 
 
 class CNN_Pi(nn.Module):
-    def __init__(self, out_features=32, kernel_size=3,):
+    def __init__(self, out_features=32, kernel_size=3):
         super().__init__()
         self.conv_layer = nn.Sequential(nn.Conv2d(1, out_features, kernel_size=3, padding=1),
                                         nn.ReLU(),
@@ -77,7 +77,7 @@ class CNN_Pi(nn.Module):
 
 
 class AdaptiveCNN_Pi(nn.Module):
-    def __init__(self, out_features=32, kernel_size=3,):
+    def __init__(self, out_features=32, kernel_size=3):
         super().__init__()
         self.conv_layer = nn.Sequential(nn.Conv2d(1, out_features, kernel_size=3, padding=1),
                                         nn.ReLU(),
