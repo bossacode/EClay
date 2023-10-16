@@ -15,14 +15,15 @@ class PllayMLP(nn.Module):
                                     nn.ReLU(),
                                     nn.Linear(64, num_classes))
         self.relu = nn.ReLU()
+        self.flatten = nn.Flatten()
 
     def forward(self, input):
         x_1 = self.topo_layer_1(input)
         x_1 = self.relu(x_1)
         x_2 = self.topo_layer_2(input)
         x_2 = self.relu(x_2)
-        x = torch.concat((self.flatten(x), x_1, x_2), dim=-1)
-        output = self.linear(x)
+        x = torch.concat((self.flatten(input), x_1, x_2), dim=-1)
+        output = self.fc_layer(x)
         return output
 
 
@@ -44,7 +45,7 @@ class AdaptivePllayMLP(nn.Module):
         x_1 = self.relu(x_1)
         x_2 = self.topo_layer_2(input)
         x_2 = self.relu(x_2)
-        x = torch.concat((self.flatten(x), x_1, x_2), dim=-1)
+        x = torch.concat((self.flatten(input), x_1, x_2), dim=-1)
         output = self.fc_layer(x)
         return output
 
@@ -68,11 +69,11 @@ class CNN_Pi(nn.Module):
                                         nn.Linear(64, 10))
 
     def forward(self, input):
-        x = self.conv_layer(input)
-        x_1 = self.topo_layer_1(input)
-        x_2 = self.topo_layer_2(input)
-        x_3 = torch.concat((x, x_1, x_2), dim=-1)
-        out = self.linear_layer(x_3)
+        x_1 = self.conv_layer(input)
+        x_2 = self.topo_layer_1(input)
+        x_3 = self.topo_layer_2(input)
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        out = self.linear_layer(x)
         return out
 
 
@@ -95,11 +96,11 @@ class AdaptiveCNN_Pi(nn.Module):
                                         nn.Linear(64, 10))
 
     def forward(self, input):
-        x = self.conv_layer(input)
-        x_1 = self.topo_layer_1(input)
-        x_2 = self.topo_layer_2(input)
-        x_3 = torch.concat((x, x_1, x_2), dim=-1)
-        out = self.linear_layer(x_3)
+        x_1 = self.conv_layer(input)
+        x_2 = self.topo_layer_1(input)
+        x_3 = self.topo_layer_2(input)
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        out = self.linear_layer(x)
         return out
 
 
