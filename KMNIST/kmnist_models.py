@@ -103,9 +103,11 @@ class PllayResNet(nn.Module):
                                 nn.Flatten())
 
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                        TopoWeightLayer(out_features, tseq=np.linspace(0.06, 0.3, 25), m0=0.05, K_max=2))    # hyperparameter 수정
+                                        TopoWeightLayer(out_features, tseq=np.linspace(0.06, 0.3, 25), m0=0.05, K_max=2),
+                                        nn.ReLU())    # hyperparameter 수정
         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                        TopoWeightLayer(out_features, tseq=np.linspace(0.14, 0.4, 27), m0=0.2, K_max=3))     # hyperparameter 수정
+                                        TopoWeightLayer(out_features, tseq=np.linspace(0.14, 0.4, 27), m0=0.2, K_max=3),
+                                        nn.ReLU())     # hyperparameter 수정
         
         self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
         
@@ -165,9 +167,11 @@ class AdaptivePllayResNet(nn.Module):
                                 nn.Flatten())
 
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2))    # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2),
+                                        nn.ReLU())    # hyperparameter 수정
         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.2, K_max=3))     # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=27, m0=0.2, K_max=3),
+                                        nn.ReLU())     # hyperparameter 수정
         
         self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
         
