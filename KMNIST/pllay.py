@@ -421,11 +421,14 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
             
             # make tseq
             birth_death = np.array(list(zip(*ph))[1:][0])
-            min_t = np.partition(birth_death[:,0], 1)[1]
-            max_t = np.partition(birth_death[:,1], -2)[-2]
+            if len(birth_death) > 1:
+                min_t = np.partition(birth_death[:,0], 1)[1]
+                max_t = np.partition(birth_death[:,1], -2)[-2]
+            else:   # there in only one homology feature (birth, inf)
+                min_t = birth_death[0,0]
+                max_t = min_t + 0.1     # arbitrary setting
             tseq = np.linspace(min_t, max_t, T)
             t_min_max_list.append([min_t, max_t])
-            
             # 이거 문서 읽으면서 다시 봐보기
             location = cub_cpx.cofaces_of_persistence_pairs()                        # list of 2 lists of numpy arrays with index correspoding to (birth, death)
 
