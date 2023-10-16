@@ -513,7 +513,7 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
 
         landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32).to(device)
         gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32).to(device)
-        t_min_max = torch.tensor(t_min_max_list)
+        t_min_max = torch.tensor(t_min_max_list).to(torch.float32).to(device)
         ctx.save_for_backward(gradient)
         return landscape, gradient, t_min_max
 
@@ -561,7 +561,7 @@ class AdaptiveGThetaLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
-        self.flatten()
+        self.flatten = nn.Flatten()
         self.g_layer = nn.Linear(len(dimensions)*T + 2, out_features)
 
     def forward(self, input, t_min_max):
