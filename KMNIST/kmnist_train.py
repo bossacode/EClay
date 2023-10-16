@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 from collections import defaultdict
-from kmnist_models import ResNet18, PRNet18
+from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
 
 
 class KMNISTCustomDataset(Dataset):
@@ -84,7 +84,6 @@ def eval(model, dataloader, loss_fn, device):
 
 if __name__ == "__main__":
     # for reproducibility (may degrade performance)
-    torch.manual_seed(123)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
@@ -115,11 +114,12 @@ if __name__ == "__main__":
     x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
     y_dir = "./generated_data/y.pt"
 
+    torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
     # model_list = [ResNet18(), PRNet18(), ResNet34(), PRNet34()]
-    model_list = [ResNet18, PRNet18]
+    model_list = [ResNet18, PRNet18, AdaptivePRNet18]
 
-    run_name = "train_500_val_500"
+    run_name = "73_RN18_vs_PRN18_vs_APRN18"
 
     # train
     # loop over data with different corruption/noise probability
@@ -139,7 +139,8 @@ if __name__ == "__main__":
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
             
             # loop over different models
-            for MODEL in model_list:                
+            for MODEL in model_list:
+                torch.manual_seed(123)                
                 model = MODEL().to(device)
                 optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
                 scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
