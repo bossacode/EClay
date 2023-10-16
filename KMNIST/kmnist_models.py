@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from pllay import TopoWeightLayer
+from pllay import TopoWeightLayer, AdaptiveTopoWeightLayer
 
 
 class ResidualBlock(nn.Module):
@@ -148,6 +148,68 @@ class PllayResNet(nn.Module):
         return output
 
 
+class AdaptivePllayResNet(nn.Module):
+    def __init__(self, block, cfg, out_features=32, num_classes=10):
+        super().__init__()
+        self.in_channels = 64   # channel of input that goes into res_layer1
+
+        self.conv_layer = nn.Sequential(nn.Conv2d(1, self.in_channels, kernel_size=3, stride=1, padding=1),
+                                        nn.BatchNorm2d(self.in_channels),
+                                        nn.ReLU())
+        
+        self.res_layer_1 = self._make_layers(block, 64, cfg[0], stride=1)
+        self.res_layer_2 = self._make_layers(block, 128, cfg[1], stride=2)
+        self.res_layer_3 = self._make_layers(block, 256, cfg[2], stride=2)
+        self.res_layer_4 = self._make_layers(block, 512, cfg[3], stride=2)
+        self.pool = nn.Sequential(nn.AdaptiveAvgPool2d(1),
+                                nn.Flatten())
+
+        self.topo_layer_1 = nn.Sequential(nn.Flatten(),
+                                        AdaptiveTopoWeightLayer(out_features, T=100, m0=0.05, K_max=2))    # hyperparameter 수정
+        self.topo_layer_2 = nn.Sequential(nn.Flatten(),
+                                        AdaptiveTopoWeightLayer(out_features, T=100, m0=0.2, K_max=3))     # hyperparameter 수정
+        
+        self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
+        
+        # weight initialization
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def _make_layers(self, block, first_conv_channel, num_blocks, stride):      
+        if stride != 1 or self.in_channels != first_conv_channel * block.expansion:
+            downsample = nn.Sequential(nn.Conv2d(self.in_channels, first_conv_channel*block.expansion, kernel_size=1, stride=stride),
+                                    nn.BatchNorm2d(first_conv_channel, block.expansion))
+        else:
+            downsample = None
+        
+        block_list =[]
+        block_list.append(block(self.in_channels, first_conv_channel, stride, downsample))
+
+        self.in_channels = first_conv_channel * block.expansion
+        
+        for _ in range(1, num_blocks):
+            block_list.append(block(self.in_channels, first_conv_channel))
+        return nn.Sequential(*block_list)
+    
+    def forward(self, input):
+        x = self.conv_layer(input)
+        x = self.res_layer_1(x)
+        x = self.res_layer_2(x)
+        x = self.res_layer_3(x)
+        x = self.res_layer_4(x)
+        x_1 = self.pool(x)
+
+        x_2 = self.topo_layer_1(input)
+        x_3 = self.topo_layer_2(input)
+
+        output = self.fc(torch.concat((x_1, x_2, x_3), dim=-1))
+        return output
+
+
 class ResNet18(ResNet):
     def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], num_classes=10):
         super().__init__(block, cfg, num_classes)
@@ -165,4 +227,9 @@ class PRNet18(PllayResNet):
 
 class PRNet34(PllayResNet):
     def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], out_features=32, num_classes=10):
+        super().__init__(block, cfg, out_features, num_classes)
+
+
+class AdaptivePRNet18(AdaptivePllayResNet):
+    def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], out_features=32, num_classes=10):
         super().__init__(block, cfg, out_features, num_classes)
