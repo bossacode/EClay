@@ -11,12 +11,6 @@ from collections import defaultdict
 from kmnist_models import ResNet18, PRNet18
 
 
-# for reproducibility (may degrade performance)
-torch.manual_seed(123)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-
-
 class KMNISTCustomDataset(Dataset):
     def __init__(self, x_dir, y_dir, mode="train", random_seed=1, val_size=0.3):
         """
@@ -89,6 +83,12 @@ def eval(model, dataloader, loss_fn, device):
 
 
 if __name__ == "__main__":
+    # for reproducibility (may degrade performance)
+    torch.manual_seed(123)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
     epoch = 100
@@ -133,8 +133,8 @@ if __name__ == "__main__":
         for n_sim in range(ntimes):
             print(f"\nSimulation: [{n_sim+1} / {ntimes}]")
             print("-"*30)
-            train_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="train", random_seed=rand_seed_list[n_sim], val_size=0.5)
-            val_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="val", random_seed=rand_seed_list[n_sim], val_size=0.5)
+            train_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="train", random_seed=rand_seed_list[n_sim], val_size=0.3)
+            val_dataset = KMNISTCustomDataset(x_dir_list[cn], y_dir, mode="val", random_seed=rand_seed_list[n_sim], val_size=0.3)
             train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
             
