@@ -332,6 +332,7 @@ class WeightedAvgLandscapeLayer(nn.Module):
         weighted_avg_land = torch.sum(input * weight, dim=-1)   # weighted average of landscapes
         output = self.flatten(weighted_avg_land)
         return output
+    
 
 
 class GThetaLayer(nn.Module):
@@ -392,6 +393,221 @@ class TopoWeightLayer(nn.Module):
         return output
 
 
+class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
+        """
+        Args:
+            input: Tensor of shape [batch_size, (C*H*W)]
+            tseq:
+            K_max:
+            grid_size:
+            dimensions:
+        Returns:
+            landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
+            gradient: Tensor of shape [batch_size, len_dim, len_tseq, k_max, (C*H*W)]
+        """
+        device = input.device
+        land_list = []
+        diff_list = []
+        t_min_max_list = []
+        ###############################################################
+        # for loop over batch (chech if parallelizable)
+        ###############################################################
+        for n_batch in range(input.shape[0]):
+            dtm_val = input[n_batch].cpu().numpy()
+            cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=dtm_val)
+            ph = cub_cpx.persistence(homology_coeff_field=2, min_persistence=0)      # list of pairs(dimension, (birth, death))
+            
+            # make tseq
+            birth_death = np.array(list(zip(*ph))[1:][0])
+            min_t = np.partition(birth_death[:,0], 1)[1]
+            max_t = np.partition(birth_death[:,1], -2)[-2]
+            tseq = np.linspace(min_t, max_t, T)
+            t_min_max_list.append([min_t, max_t])
+            
+            # 이거 문서 읽으면서 다시 봐보기
+            location = cub_cpx.cofaces_of_persistence_pairs()                        # list of 2 lists of numpy arrays with index correspoding to (birth, death)
+
+            if location[0]:
+                location_vstack = [np.vstack(location[0]), np.vstack(location[1])]
+            else:
+                location_vstack = [np.zeros((0,2), dtype=np.int64), np.vstack(location[1])]
+
+            birth_location = np.concatenate((location_vstack[0][:, 0], location_vstack[1][:, 0]))
+            death_location = location_vstack[0][:, 1]
+
+            # lengths
+            len_dim = len(dimensions)
+            len_ph = len(ph)
+
+            land = np.zeros((len_dim, T, K_max))
+            land_diff_birth = np.zeros((len_dim, T, K_max, len_ph))
+            land_diff_death = np.zeros((len_dim, T, K_max, len_ph))
+
+            for i_dim, dim in enumerate(dimensions):
+                # select "dim" dimensional persistent homologies
+                dim_ph = [pair for pair in ph if pair[0] == dim]
+                dim_ph_id = np.array([j for j, pair in enumerate(ph) if pair[0] == dim])
+
+                # number of "dim" dimensional persistent homologies
+                len_dim_ph = len(dim_ph)
+
+                # calculate persistence landscapes
+                fab = np.zeros((T, max(len_dim_ph, K_max)))
+                for p in range(len_dim_ph):
+                    for t in range(T):
+                        fab[t, p] = max(min(tseq[t]-dim_ph[p][1][0], dim_ph[p][1][1]-tseq[t]), 0)
+                land[i_dim] = -np.sort(-fab, axis=-1)[:, :K_max]
+                land_ind = np.argsort(-fab, axis=-1)[:, :K_max]    # shape: [len_tseq, k_max]
+
+                # derivative
+                fab_diff_birth = np.zeros((T, len_dim_ph))
+                for p in range(len_dim_ph):
+                    # (t > birth) & (t < (birth + death)/2)
+                    fab_diff_birth[:, p] = np.where((tseq > dim_ph[p][1][0]) & (2*tseq < dim_ph[p][1][0] + dim_ph[p][1][1]),
+                                                    -1.,
+                                                    0.)
+                fab_diff_death = np.zeros((T, len_dim_ph))
+                for p in range(len_dim_ph):
+                    # (t < death) & (t > (birth + death)/2)
+                    fab_diff_death[:, p] = np.where((tseq < dim_ph[p][1][1]) & (2*tseq > dim_ph[p][1][0] + dim_ph[p][1][1]),
+                                                    1.,
+                                                    0.)
+                # derivative of landscape functions with regard to persistence diagram
+                for p in range(len_dim_ph):
+                    land_diff_birth[i_dim, :, :, dim_ph_id[p]] = np.where(p == land_ind,
+                                                                    np.repeat(np.expand_dims(fab_diff_birth[:, p], -1), K_max, -1),
+                                                                    0)
+                for p in range(len_dim_ph):
+                    land_diff_death[i_dim, :, :, dim_ph_id[p]] = np.where(p == land_ind,
+                                                                    np.repeat(np.expand_dims(fab_diff_death[:, p], -1), K_max, -1),
+                                                                    0)
+            land_list.append(land)
+            
+            # derivative of persistence diagram with regard to input: dDx/dX
+            DiagFUNDiffBirth = np.zeros((len_ph, len(dtm_val)))
+            for iBirth in range(len(birth_location)):
+                DiagFUNDiffBirth[iBirth, birth_location[iBirth]] = 1
+
+            DiagFUNDiffDeath = np.zeros((len_ph, len(dtm_val)))
+            for iDeath in range(len(death_location)):
+                DiagFUNDiffDeath[iDeath, death_location[iDeath]] = 1	
+
+            if location[0]:
+                dimension = np.concatenate((np.hstack([np.repeat(ldim, len(location[0][ldim])) for ldim in range(len(location[0]))]),
+                                            np.hstack([np.repeat(ldim, len(location[1][ldim])) for ldim in range(len(location[1]))])))
+            else:
+                dimension = np.hstack([np.repeat(ldim, len(location[1][ldim])) for ldim in range(len(location[1]))])
+            if len(death_location) > 0:
+                persistence = np.concatenate((dtm_val[death_location], np.repeat(np.infty, len(np.vstack(location[1]))))) - dtm_val[birth_location]
+            else:
+                persistence = np.repeat(np.infty, len(np.vstack(location[1])))
+            order = np.lexsort((-persistence, -dimension))
+
+            diff = np.dot(land_diff_birth, DiagFUNDiffBirth[order, :]) + np.dot(land_diff_death, DiagFUNDiffDeath[order, :])
+            diff_list.append(diff)
+
+        landscape = torch.from_numpy(np.stack(land_list)).to(torch.float32).to(device)
+        gradient = torch.from_numpy(np.stack(diff_list)).to(torch.float32).to(device)
+        t_min_max = torch.tensor(t_min_max_list)
+        ctx.save_for_backward(gradient)
+        return landscape, gradient, t_min_max
+
+    @staticmethod
+    def backward(ctx, grad_out, _grad_out_gradient, _grad_out_t_min_max):
+        local_grad = ctx.saved_tensors
+        grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
+        # gradient에 대한 gradient 누적해야 하나...?
+        return grad_input, None, None, None, None
+
+
+class AdaptivePersistenceLandscapeLayer(nn.Module):
+    def __init__(self, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
+        """
+        Args:
+            tseq: 
+            K_max: 
+            grid_size: 
+            dimensions: 
+        """
+        super().__init__()
+        self.T = T
+        self.K_max = K_max
+        self.grid_size = grid_size
+        self.dimensions = dimensions
+
+    def forward(self, inputs):
+        """
+        Args:
+            input: Tensor of shape [batch_size, (C*H*W)]
+        Returns:
+            landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
+            t_min_max: Tensor of shape [batch_size, 2]
+        """
+        land, grad, t_min_max = AdaptivePersistenceLandscapeCustomGrad.apply(inputs, self.T, self.K_max, self.grid_size, self.dimensions)
+        return land, t_min_max
+
+
+class AdaptiveGThetaLayer(nn.Module):
+    def __init__(self, out_features, T=100, dimensions=[0, 1]):
+        """
+        Args:
+            out_features: 
+            tseq: 
+            dimensions: 
+        """
+        super().__init__()
+        self.g_layer = nn.Linear(len(dimensions)*T + 2, out_features)
+
+    def forward(self, input, t_min_max):
+        """
+        Args:
+            input: Tensor of shape [batch_size, (len_dim*len_tseq)]
+            t_min_max: Tensor of shape [batch_size, 2]
+        Returns:
+            output: Tensor of shape [batch_size, out_features]
+        """
+        x = torch.concat((input, t_min_max), dim=-1)
+        output = self.g_layer(x)
+        return output
+
+
+class AdaptiveTopoWeightLayer(nn.Module):
+    def __init__(self, out_features, T=100, m0=0.3, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1]):
+        """
+        Args:
+            out_features: 
+            T: 
+            m0: 
+            lims: 
+            size: 
+            r: 
+            K_max: 
+            dimensions: 
+        """
+        super().__init__()
+        self.dtm_layer = DTMLayer(m0, lims, size, r)
+        self.landscape_layer = AdaptivePersistenceLandscapeLayer(T, K_max, self.dtm_layer.grid_size, dimensions)
+        self.avg_layer = WeightedAvgLandscapeLayer(K_max, dimensions)
+        self.gtheta_layer = AdaptiveGThetaLayer(out_features, T, dimensions)
+
+    def forward(self, input):
+        """
+        Args:
+            input: Tensor of shape [batch_size, (C*H*W)]
+
+        Returns:
+            output: Tensor of shape [batch_size, out_features]
+        """
+        grids = self.dtm_layer.grid.expand(input.shape[0],-1, -1).to(input.device)
+        dtm_val = self.dtm_layer(input=grids, weight=input)
+        land, t_min_max = self.landscape_layer(dtm_val)
+        weighted_avg_land = self.avg_layer(land)
+        output = self.gtheta_layer(weighted_avg_land, t_min_max)
+        return output
+
+
 def compute_dtm(input, m0=0.3, lims=[[1, -1], [-1, 1]], size=[28, 28], r=2):
     """
     Returns:
@@ -428,3 +644,16 @@ def compute_landscape(input, tseq:list|np.ndarray, m0=0.3, lims=[[1, -1], [-1, 1
     dtm_val = dtm_layer(input=grids, weight=input)
     landscape = landscape_layer(dtm_val)
     return landscape
+
+
+def compute_adaptive_landscape(input, T=100, m0=0.3, lims=[[1, -1], [-1, 1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1]):
+    """
+    Returns:
+        landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
+    """
+    dtm_layer = DTMLayer(m0, lims, size, r)
+    landscape_layer = AdaptivePersistenceLandscapeLayer(T, K_max, dtm_layer.grid_size, dimensions)
+    grids = dtm_layer.grid.expand(input.shape[0],-1, -1).to(input.device)
+    dtm_val = dtm_layer(input=grids, weight=input)
+    landscape, tseq = landscape_layer(dtm_val)
+    return landscape, tseq
