@@ -24,7 +24,7 @@ class MNISTCustomDataset(Dataset):
         if self.mode == "train" or self.mode == "val":
             self.x_tr, self.x_val, self.y_tr, self.y_val = train_test_split(x_train, y_train, test_size=val_size, shuffle=True,
                                                                             random_state=random_seed, stratify=y_train)
-    
+
     def __len__(self):
         if self.mode == "train":
             return len(self.y_tr)
@@ -84,10 +84,8 @@ def eval(model, dataloader, loss_fn, device):
 
 if __name__ == "__main__":
     # for reproducibility (may degrade performance)
-    torch.manual_seed(123)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
@@ -115,11 +113,12 @@ if __name__ == "__main__":
     x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
     y_dir = "./generated_data/y.pt"
 
+    torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
     # model_list = [ResNet18(), PRNet18(), ResNet34(), PRNet34()]
-    model_list = [PllayMLP, AdaptivePllayMLP]
+    model_list = [CNN, CNN_Pi, AdaptiveCNN_Pi]
 
-    run_name = "train_700_val_300_pmlp_vs_apmlp"
+    run_name = "73_CNN_vs_PCNN_vs_APCNN"
 
     # train
     # loop over data with different corruption/noise probability
@@ -139,7 +138,8 @@ if __name__ == "__main__":
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
             
             # loop over different models
-            for MODEL in model_list:                
+            for MODEL in model_list:
+                torch.manual_seed(123)                
                 model = MODEL().to(device)
                 optim = Adam(model.parameters(), lr)
                 scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)

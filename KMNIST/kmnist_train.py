@@ -87,7 +87,6 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
     epoch = 100
