@@ -5,17 +5,14 @@ from torch.utils.tensorboard import SummaryWriter
 import json
 import os
 from collections import defaultdict
-from mnist_models import PllayMLP, AdaptivePllayMLP
+from mnist_models import PllayMLP, AdaptivePllayMLP, CNN, CNN_Pi, AdaptiveCNN_Pi
 from mnist_train import MNISTCustomDataset, eval
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
     loss_fn = nn.CrossEntropyLoss()
-
-    # hyperparameters
-    batch_size = 16
-    lr = 0.001    
+    batch_size = 64
 
     # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
@@ -29,9 +26,11 @@ if __name__ == "__main__":
     x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
     y_dir = "./generated_data/y.pt"
 
-    model_list = [PllayMLP, AdaptivePllayMLP]
+    # model_list = [PllayMLP, AdaptivePllayMLP]
+    model_list = [CNN, CNN_Pi, AdaptiveCNN_Pi]
 
-    run_name = "73_PMLP_vs_APMLP"
+    # run_name = "73_PMLP_vs_APMLP"
+    run_name = "73_CNN_vs_PCNN_vs_APCNN"
     
     # test
     # loop over data with different corruption/noise probability

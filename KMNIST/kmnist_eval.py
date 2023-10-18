@@ -5,17 +5,14 @@ from torch.utils.tensorboard import SummaryWriter
 import json
 import os
 from collections import defaultdict
-from mnist_models import ResNet18, PRNet18, AdaptivePRNet18
-from mnist_train import KMNISTCustomDataset, eval
+from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
+from kmnist_train import KMNISTCustomDataset, eval
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
     loss_fn = nn.CrossEntropyLoss()
-
-    # hyperparameters
-    batch_size = 16
-    lr = 0.001    
+    batch_size = 64
 
     # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
