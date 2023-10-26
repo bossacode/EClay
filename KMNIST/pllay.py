@@ -252,12 +252,10 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
         return landscape, gradient
 
     @staticmethod
-    def backward(ctx, grad_out, _grad_out_gradient):
+    def backward(ctx, up_grad_landscape, _up_grad_gradient):
         local_grad = ctx.saved_tensors
-        grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
-        # gradient에 대한 gradient 누적해야 하나...?
-        print(_grad_out_gradient)   # 요거 0이면 누적 안 해도 될텐데
-        return grad_input, None, None, None, None
+        down_grad = torch.einsum('...ijk,...ijkl->...l', up_grad_landscape, local_grad)
+        return down_grad, None, None, None, None
 
 
 class PersistenceLandscapeLayer(nn.Module):
@@ -335,7 +333,7 @@ class GThetaLayer(nn.Module):
 
 
 class TopoWeightLayer(nn.Module):
-    def __init__(self, out_features, tseq:list|np.ndarray, batch_size, m0=0.05, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], device="cuda"):
+    def __init__(self, out_features, tseq:list|np.ndarray, m0=0.05, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1]):
         """
         Args:
             out_features: 
@@ -348,10 +346,9 @@ class TopoWeightLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
-        grid = grid_by(lims, size)
-        self.input_grid = grid.expand(batch_size, -1, -1).to(device)
+        self.grid = grid_by(lims, size)
         
-        self.dtm_layer = DTMLayer(grid, m0, r)
+        self.dtm_layer = DTMLayer(self.grid, m0, r)
         self.landscape_layer = PersistenceLandscapeLayer(tseq, K_max, size, dimensions)
         self.avg_layer = WeightedAvgLandscapeLayer(K_max, dimensions)
         self.gtheta_layer = GThetaLayer(out_features, tseq, dimensions)
@@ -364,7 +361,8 @@ class TopoWeightLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        dtm_val = self.dtm_layer(input=self.input_grid, weight=input)
+        input_grid = self.grid.expand(input.shape[0], -1, -1).to(input.device)
+        dtm_val = self.dtm_layer(input=input_grid, weight=input)
         land = self.landscape_layer(dtm_val)
         weighted_avg_land = self.avg_layer(land)
         output = self.gtheta_layer(weighted_avg_land)

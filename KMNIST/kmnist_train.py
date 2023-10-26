@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 from collections import defaultdict
-from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
+# from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
 from base_models import BasePllay, BaseAdPllay
 
 
@@ -110,7 +110,6 @@ if __name__ == "__main__":
 
     # hyperparameters
     batch_size = 32
-    # lr = 0.001
     lr = 0.01
     # lr = 0.1
     # weight_decay = 0.0001

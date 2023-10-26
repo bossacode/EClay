@@ -6,7 +6,7 @@ from pllay import grid_by, DTMLayer, WeightedAvgLandscapeLayer
 
 class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1], add=True, dtype='float32'):
+    def forward(ctx, input, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1], add_t=True, dtype='float32'):
         """
         Args:
             input: Tensor of shape [batch_size, (C*H*W)]
@@ -40,9 +40,7 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
                 diff_list.append(diff)
                 continue
             
-            dim_index = ph[:, 0]  # shape: [num_ph, ]
-            birth = ph[:, 1]
-            death = ph[:, 2]
+            dim_index, birth, death = ph[:, 0], ph[:, 1], ph[:, 2]  # shape: [num_ph, ]
 
             location = cub_cpx.cofaces_of_persistence_pairs()    # list of 2 lists of numpy arrays
             location_vstack = np.vstack(location[0])    # shape: [num_ph, 2]
@@ -62,7 +60,14 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
                 
                 d_birth = birth[d_ind].reshape(1, -1)   # shape: [1, len_dim_ph]
                 d_death = death[d_ind].reshape(1, -1)   # shape: [1, len_dim_ph]
-                t_min, t_max = d_birth.min(), d_death.max()
+
+                # range selection
+                if num_d_ph >= K_max:
+                    t_min, t_max = d_birth[0][:K_max].min(), d_death[0][:K_max].max()
+                else:
+                    t_min, t_max = d_birth.min(), d_death.max()
+                # t_min, t_max = d_birth.min(), d_death.max()
+
                 tseq = np.linspace(t_min, t_max, T, dtype=dtype).reshape(-1, 1)  # shape: [T, 1]
 
                 # calculate persistence landscapes
@@ -70,7 +75,7 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
                 fab[:, :num_d_ph] = np.maximum(np.minimum(tseq - d_birth, d_death - tseq), 0.)
 
                 # add t information
-                if add:
+                if add_t:
                     land[i_dim] = -np.sort(-fab, axis=-1)[:, :K_max] + tseq
                 else:
                     land[i_dim] = -np.sort(-fab, axis=-1)[:, :K_max]
@@ -114,12 +119,11 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
     def backward(ctx, grad_out, _grad_out_gradient):
         local_grad = ctx.saved_tensors
         grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
-        # gradient에 대한 gradient 누적해야 하나...?
         return grad_input, None, None, None, None, None, None
 
 
 class AdaptivePersistenceLandscapeLayer(nn.Module):
-    def __init__(self, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1], add=True):
+    def __init__(self, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1], add_t=True):
         """
         Args:
             tseq: 
@@ -132,7 +136,7 @@ class AdaptivePersistenceLandscapeLayer(nn.Module):
         self.K_max = K_max
         self.grid_size = grid_size
         self.dimensions = dimensions
-        self.add = add
+        self.add_t = add_t
 
     def forward(self, inputs):
         """
@@ -141,7 +145,7 @@ class AdaptivePersistenceLandscapeLayer(nn.Module):
         Returns:
             landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
         """
-        land, grad = AdaptivePersistenceLandscapeCustomGrad.apply(inputs, self.T, self.K_max, self.grid_size, self.dimensions, self.add)
+        land, grad = AdaptivePersistenceLandscapeCustomGrad.apply(inputs, self.T, self.K_max, self.grid_size, self.dimensions, self.add_t)
         return land
 
 class AdaptiveGThetaLayer(nn.Module):
@@ -170,7 +174,7 @@ class AdaptiveGThetaLayer(nn.Module):
 
 
 class AdaptiveTopoWeightLayer(nn.Module):
-    def __init__(self, out_features, batch_size, T=50, m0=0.05, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], add=True, device="cuda"):
+    def __init__(self, out_features, T=50, m0=0.05, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], add_t=True):
         """
         Args:
             out_features: 
@@ -183,11 +187,10 @@ class AdaptiveTopoWeightLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
-        grid = grid_by(lims, size)
-        self.input_grid = grid.expand(batch_size, -1, -1).to(device)
+        self.grid = grid_by(lims, size)
 
-        self.dtm_layer = DTMLayer(grid, m0, r)
-        self.landscape_layer = AdaptivePersistenceLandscapeLayer(T, K_max, size, dimensions, add=add)
+        self.dtm_layer = DTMLayer(self.grid, m0, r)
+        self.landscape_layer = AdaptivePersistenceLandscapeLayer(T, K_max, size, dimensions, add_t=add_t)
         self.avg_layer = WeightedAvgLandscapeLayer(K_max, dimensions)
         self.gtheta_layer = AdaptiveGThetaLayer(out_features, T, dimensions)
 
@@ -199,7 +202,8 @@ class AdaptiveTopoWeightLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        dtm_val = self.dtm_layer(input=self.input_grid, weight=input)
+        input_grid = self.grid.expand(input.shape[0], -1, -1).to(input.device)
+        dtm_val = self.dtm_layer(input=input_grid, weight=input)
         land = self.landscape_layer(dtm_val)
         weighted_avg_land = self.avg_layer(land)
         output = self.gtheta_layer(weighted_avg_land)

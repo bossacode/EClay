@@ -23,8 +23,7 @@ class BaseAdPllay(nn.Module):
     def __init__(self):
         super().__init__()
         self.flatten = nn.Flatten()
-        # self.topo_layer = AdaptiveTopoWeightLayer(32, T=50, m0=0.05, K_max=1, add=True)
-        self.topo_layer = AdaptiveTopoWeightLayer(32, T=50, m0=0.05, K_max=1, add=True)
+        self.topo_layer = AdaptiveTopoWeightLayer(32, T=50, m0=0.05, K_max=2, add_t=True)
         self.relu = nn.ReLU()
         self.fc = nn.Linear(32, 10)
 
