@@ -132,8 +132,10 @@ class DTMLayer(nn.Module):
             sorted_weight_cumsum = sorted_weight.cumsum(-1)                 # [batch_size, (C*H*W)]
             index = torch.searchsorted(sorted_weight_cumsum, weight_bound)  # [batch_size, 1]
             max_k = index.max().item() + 1
+            if max_k > weight.shape[-1]:    # when max_k is out of range
+                max_k -= 1
 
-        knn_distance, knn_index = knn(input, self.grid, max_k)
+        knn_distance, knn_index = knn(input, self.grid.to(input.device), max_k)
         dtm_val = dtm_using_knn(knn_distance, knn_index, weight, weight_bound, self.r)
         return dtm_val
 
@@ -160,7 +162,7 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
         # for loop over batch (chech if parallelizable)
         ###############################################################
         for n_batch in range(input.shape[0]):
-            dtm_val = input[n_batch].cpu().numpy()
+            dtm_val = input[n_batch].detach().cpu().numpy()
             cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=dtm_val)
             ph = cub_cpx.persistence(homology_coeff_field=2, min_persistence=0)      # list of pairs(dimension, (birth, death))
             # 이거 문서 읽으면서 다시 봐보기
@@ -253,7 +255,7 @@ class PersistenceLandscapeCustomGrad(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, up_grad_landscape, _up_grad_gradient):
-        local_grad = ctx.saved_tensors
+        local_grad, = ctx.saved_tensors
         down_grad = torch.einsum('...ijk,...ijkl->...l', up_grad_landscape, local_grad)
         return down_grad, None, None, None, None
 

@@ -24,8 +24,9 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
         ###############################################################
         # for loop over batch (chech if parallelizable)
         ###############################################################
+        np_input = input.detach().cpu()
         for n_batch in range(input.shape[0]):
-            dtm_val = input[n_batch].detach().cpu().numpy()
+            dtm_val = np_input[n_batch]
             cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=dtm_val)
             ph = cub_cpx.persistence(homology_coeff_field=2, min_persistence=0)     # list of (dimension, (birth, death))
             ph = np.array([(dim, birth, death) for dim, (birth, death) in ph if death != float('inf')], dtype=dtype)    # exclude (birth, inf) in 0-dim homology
@@ -116,10 +117,10 @@ class AdaptivePersistenceLandscapeCustomGrad(torch.autograd.Function):
         return landscape, gradient
 
     @staticmethod
-    def backward(ctx, grad_out, _grad_out_gradient):
-        local_grad = ctx.saved_tensors
-        grad_input = torch.einsum('...ijk,...ijkl->...l', grad_out, local_grad)
-        return grad_input, None, None, None, None, None, None
+    def backward(ctx, up_grad, _up_grad_gradient):
+        local_grad, = ctx.saved_tensors
+        down_grad = torch.einsum('...ijk,...ijkl->...l', up_grad, local_grad)
+        return down_grad, None, None, None, None, None, None
 
 
 class AdaptivePersistenceLandscapeLayer(nn.Module):
