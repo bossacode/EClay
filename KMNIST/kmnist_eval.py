@@ -6,36 +6,20 @@ import json
 import os
 from collections import defaultdict
 from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
-from kmnist_train import KMNISTCustomDataset, eval
+from kmnist_train import KMNISTCustomDataset, eval, model_list, run_name, len_cn, file_cn_list, x_dir_list, y_dir
+
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ntimes = 10         # number of repetition for simulation of each model
     loss_fn = nn.CrossEntropyLoss()
     batch_size = 64
-
-    # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
-    noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-
-    len_cn = len(corrupt_prob_list)
-    file_cn_list = [None] * len_cn
-    for cn in range(len_cn):
-        file_cn_list[cn] = str(int(corrupt_prob_list[cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[cn] * 100)).zfill(2)
-    x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_dir = "./generated_data/y.pt"
-
-    model_list = [ResNet18, PRNet18, AdaptivePRNet18]
-
-    run_name = "73_RN18_vs_PRN18_vs_APRN18"
     
     # test
     # loop over data with different corruption/noise probability
     for cn in range(len_cn):
         print("-"*30)
-        print(f"Corruption rate: {corrupt_prob_list[cn]}")
-        print(f"Noise rate: {noise_prob_list[cn]}")
+        print(f"Corruption/Noise rate: {file_cn_list[cn]}")
         print("-"*30)
         test_info = defaultdict(list)    # defaultdict to store test info of (accuracy, loss)
 
@@ -59,7 +43,7 @@ if __name__ == "__main__":
                 test_info[MODEL.__name__].append({"sim" + str(n_sim+1):(test_acc, test_loss)})
 
                 # write to tensorboard
-                writer = SummaryWriter(f"./runs/{run_name}/{file_cn_list[cn]}/{MODEL.__name__}")
+                writer = SummaryWriter(f"./runs/{run_name}/test/{file_cn_list[cn]}/{MODEL.__name__}")
                 writer.add_scalar(f"loss/sim", test_loss, n_sim+1)
                 writer.add_scalar(f"accuracy", test_acc, n_sim+1)
                 writer.flush()

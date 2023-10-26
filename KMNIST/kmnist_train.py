@@ -9,6 +9,23 @@ import json
 import os
 from collections import defaultdict
 from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
+from base_models import BasePllay, BaseAdPllay
+
+
+model_list = [BaseAdPllay]
+run_name = "73_BaseAdPllay"
+ntimes = 10         # number of repetition for simulation of each model
+
+# corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+# noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
+noise_prob_list = [0.0, 0.1, 0.2, 0.3]
+len_cn = len(corrupt_prob_list)
+file_cn_list = [None] * len_cn
+for cn in range(len_cn):
+    file_cn_list[cn] = str(int(corrupt_prob_list[cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[cn] * 100)).zfill(2)
+x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
+y_dir = "./generated_data/y.pt"
 
 
 class KMNISTCustomDataset(Dataset):
@@ -88,44 +105,28 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    ntimes = 10         # number of repetition for simulation of each model
     epoch = 100
     loss_fn = nn.CrossEntropyLoss()
 
     # hyperparameters
     batch_size = 32
-    lr = 0.001
-    weight_decay = 0.0001
-    factor = 0.5        # factor to decay lr by when loss stagnates
+    # lr = 0.001
+    lr = 0.01
+    # lr = 0.1
+    # weight_decay = 0.0001
+    factor = 0.1        # factor to decay lr by when loss stagnates
     threshold = 0.005   # min value to be considered as improvement in loss
     es_patience = 4     # earlystopping patience
     sch_patience = 2    # lr scheduler patience
 
-    # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
-    noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-
-    len_cn = len(corrupt_prob_list)
-    file_cn_list = [None] * len_cn
-    for cn in range(len_cn):
-        file_cn_list[cn] = str(int(corrupt_prob_list[cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[cn] * 100)).zfill(2)
-    x_dir_list = ["./generated_data/x_" + file_cn_list[i] + ".pt" for i in range(len_cn)]
-    y_dir = "./generated_data/y.pt"
-
     torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
-    # model_list = [ResNet18(), PRNet18(), ResNet34(), PRNet34()]
-    model_list = [ResNet18, PRNet18, AdaptivePRNet18]
-
-    run_name = "73_RN18_vs_PRN18_vs_APRN18"
 
     # train
     # loop over data with different corruption/noise probability
     for cn in range(len_cn):
         print("-"*30)
-        print(f"Corruption rate: {corrupt_prob_list[cn]}")
-        print(f"Noise rate: {noise_prob_list[cn]}")
+        print(f"Corruption/Noise rate: {file_cn_list[cn]}")
         print("-"*30)
         
         # loop over number of simulations
@@ -141,7 +142,8 @@ if __name__ == "__main__":
             for MODEL in model_list:
                 torch.manual_seed(123)                
                 model = MODEL().to(device)
-                optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
+                # optim = Adam(model.parameters(), lr, weight_decay=weight_decay)
+                optim = Adam(model.parameters(), lr)
                 scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
                 weight_dir = f"./saved_weights/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
@@ -154,7 +156,7 @@ if __name__ == "__main__":
                 early_stop_counter = 0
                 train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
                 
-                writer = SummaryWriter(f"./runs/{run_name}/{file_cn_list[cn]}/{MODEL.__name__}")
+                writer = SummaryWriter(f"./runs/{run_name}/train/{file_cn_list[cn]}/{MODEL.__name__}")
                 # loop over epoch
                 for n_epoch in range(epoch):
                     print(f"Model: {MODEL.__name__}")
