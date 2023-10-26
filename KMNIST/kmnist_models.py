@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from pllay import TopoWeightLayer, AdaptiveTopoWeightLayer
+from pllay import TopoWeightLayer
+from pllay_adap import AdaptiveTopoWeightLayer
 
 
 class ResidualBlock(nn.Module):
@@ -37,7 +38,7 @@ class ResNet(nn.Module):
 
         # self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.in_channels = 64   # channel of input that goes into res_layer1
+        self.in_channels = 3   # channel of input that goes into res_layer1
 
         self.conv_layer = nn.Sequential(nn.Conv2d(1, self.in_channels, kernel_size=3, stride=1, padding=1),
                                         nn.BatchNorm2d(self.in_channels),
@@ -117,26 +118,36 @@ class AdaptivePllayResNet(ResNet):
     def __init__(self, block, cfg, out_features=32, num_classes=10):
         super().__init__(block, cfg, num_classes)
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2),  # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=50, m0=0.05, K_max=2),  # hyperparameter 수정
                                         nn.ReLU())
         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                        AdaptiveTopoWeightLayer(out_features, T=27, m0=0.2, K_max=3),   # hyperparameter 수정
+                                        AdaptiveTopoWeightLayer(out_features, T=50, m0=0.05, K_max=2),   # hyperparameter 수정
                                         nn.ReLU())
+        self.topo_layer_3 = nn.Sequential(nn.Flatten(),
+                                AdaptiveTopoWeightLayer(out_features, T=50, m0=0.05, K_max=2),   # hyperparameter 수정
+                                nn.ReLU())
+        self.topo_layer_4 = nn.Sequential(nn.Flatten(),
+                                AdaptiveTopoWeightLayer(out_features, T=50, m0=0.05, K_max=2),   # hyperparameter 수정
+                                nn.ReLU())
         
-        self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
+        self.fc = nn.Linear(512*block.expansion + 4*out_features, num_classes)
     
     def forward(self, input):
         x = self.conv_layer(input)
+
+        x_0 = self.topo_layer_1(x[:,0,:,:])
+        x_1 = self.topo_layer_1(x[:,1,:,:])
+        x_2 = self.topo_layer_1(x[:,2,:,:])
+
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
         x = self.res_layer_3(x)
         x = self.res_layer_4(x)
-        x_1 = self.pool(x)
+        x = self.pool(x)
 
-        x_2 = self.topo_layer_1(input)
-        x_3 = self.topo_layer_2(input)
+        x_3 = self.topo_layer_4(input)
 
-        output = self.fc(torch.concat((x_1, x_2, x_3), dim=-1))
+        output = self.fc(torch.concat((x, x_0, x_1, x_2, x_3), dim=-1))
         return output
 
 
