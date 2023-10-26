@@ -8,11 +8,11 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 from collections import defaultdict
-# from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
+from kmnist_models import ResNet18, PRNet18, AdaptivePRNet18
 from base_models import BasePllay, BaseAdPllay
 
 
-model_list = [BaseAdPllay]
+model_list = [AdaptivePRNet18]
 run_name = "73_BaseAdPllay"
 ntimes = 10         # number of repetition for simulation of each model
 
@@ -71,6 +71,7 @@ def train(model, dataloader, loss_fn, optimizer, device):
         correct += (y_pred.argmax(1) == y).sum().item()
 
         loss.backward()
+
         optimizer.step()
         optimizer.zero_grad()
 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
 
     # hyperparameters
-    batch_size = 32
+    batch_size = 16
     lr = 0.01
     # lr = 0.1
     # weight_decay = 0.0001
@@ -120,6 +121,8 @@ if __name__ == "__main__":
 
     torch.manual_seed(123)
     rand_seed_list = [torch.randint(0,100, size=(1,)).item() for i in range(ntimes)]    # used to create different train/val split for each simulation
+
+    record_training = False
 
     # train
     # loop over data with different corruption/noise probability
@@ -145,17 +148,19 @@ if __name__ == "__main__":
                 optim = Adam(model.parameters(), lr)
                 scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
-                weight_dir = f"./saved_weights/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
-                if not os.path.exists(weight_dir):
-                    os.makedirs(weight_dir)
-
+                if record_training:
+                    train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
+                    writer = SummaryWriter(f"./runs/{run_name}/train/{file_cn_list[cn]}/{MODEL.__name__}")
+                    
+                    weight_dir = f"./saved_weights/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"    # directory path to store trained model weights
+                    if not os.path.exists(weight_dir):
+                        os.makedirs(weight_dir)
+                
                 best_loss = float("inf")
                 best_acc = None
                 best_epoch = None
                 early_stop_counter = 0
-                train_info = defaultdict(list)  # used to store train info of {epoch:[...], train loss:[...], val loss:[...], train acc:[...], val acc:[...]}
-                
-                writer = SummaryWriter(f"./runs/{run_name}/train/{file_cn_list[cn]}/{MODEL.__name__}")
+
                 # loop over epoch
                 for n_epoch in range(epoch):
                     print(f"Model: {MODEL.__name__}")
@@ -166,15 +171,15 @@ if __name__ == "__main__":
                     
                     scheduler.step(val_loss)
                     
-                    # save train information
-                    train_info['epoch'].append(n_epoch+1)
-                    train_info['train/val loss'].append((train_loss, val_loss))
-                    train_info['train/val acc'].append((train_acc, val_acc))
-
-                    # write to tensorboard
-                    writer.add_scalars(f"loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
-                    writer.add_scalars(f"accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
-                    writer.flush()
+                    if record_training:
+                        # save train information
+                        train_info['epoch'].append(n_epoch+1)
+                        train_info['train/val loss'].append((train_loss, val_loss))
+                        train_info['train/val acc'].append((train_acc, val_acc))
+                        # write to tensorboard
+                        writer.add_scalars(f"loss/sim{n_sim+1}", {"Train":train_loss, "Validation":val_loss}, n_epoch+1)
+                        writer.add_scalars(f"accuracy/sim{n_sim+1}", {"Train":train_acc, "Validation":val_acc}, n_epoch+1)
+                        writer.flush()
 
                     # early stopping (if loss improvement is below threshold, it's not considered as improvement)
                     if (best_loss - val_loss) > threshold:
@@ -182,7 +187,8 @@ if __name__ == "__main__":
                         best_loss = val_loss
                         best_acc = val_acc
                         best_epoch = n_epoch
-                        torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")   # save model weights
+                        if record_training:
+                            torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")   # save model weights
                     else:
                         early_stop_counter += 1
                         if early_stop_counter > es_patience:    # stop training if loss doesn't improve for es_patience + 1 epochs
@@ -193,11 +199,12 @@ if __name__ == "__main__":
                             print("-"*30)
                             break
                 
-                # save train info as json file
-                train_info_dir = f"./train_info/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"
-                if not os.path.exists(train_info_dir):
-                    os.makedirs(train_info_dir)
-                with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
-                    json.dump(train_info, f, indent="\t")
+                if record_training:
+                    # save train info as json file
+                    train_info_dir = f"./train_info/{run_name}/x_{file_cn_list[cn]}/{MODEL.__name__}"
+                    if not os.path.exists(train_info_dir):
+                        os.makedirs(train_info_dir)
+                    with open(train_info_dir + "/" + f"sim{n_sim+1}_train_info.json", "w", encoding="utf-8") as f:
+                        json.dump(train_info, f, indent="\t")
                 
                 print("\n"*2)
