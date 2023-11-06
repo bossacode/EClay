@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import gudhi
-from pllay import grid_by, DTMLayer, WALandLayer
+from pllay import grid_by, DTMLayer
 
 class AdPLCustomGrad(torch.autograd.Function):
     @staticmethod

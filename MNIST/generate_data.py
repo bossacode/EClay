@@ -5,7 +5,7 @@ from torchvision.transforms import ToTensor
 import os
 
 
-N = 300
+N = 200
 
 
 def corrupt_noise(X, corrupt_prob, noise_prob):
