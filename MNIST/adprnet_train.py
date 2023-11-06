@@ -87,6 +87,8 @@ class CustomDataset(Dataset):
 def plot_weight_grad_norm(weight_norm, grad_norm, epoch, run_name, cn, sim):
     weight_grad_dir = f"./weight_grad/{run_name}/{cn}/{sim}"
     for (name1, weight_norm), (name2, grad_norm) in zip(weight_norm.items(), grad_norm.items()):
+        weight_norm = weight_norm.view(-1)
+        grad_norm = grad_norm.view(-1)
         plt.figure()
         plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
         plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
