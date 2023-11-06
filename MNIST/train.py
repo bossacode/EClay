@@ -9,9 +9,10 @@ import json
 import os
 from collections import defaultdict
 from models import ResNet18, AdPRNet18
-from base_models import Pllay
+from base_models import BasePllay
 import matplotlib.pyplot as plt
-import re
+from pllay import WALandLayer
+from generate_data import N
 
 
 # for reproducibility (may degrade performance)
@@ -22,20 +23,20 @@ record_weight = True
 record_train_info = False
 record_tensorboard = False
 
-# model_list = [BaseAdPllay]
-model_list = [AdPRNet18]
+model_list = [BasePllay]
+# model_list = [AdPRNet18]
 # model_list = [ResNet18]
 device = "cuda" if torch.cuda.is_available() else "cpu"
 epoch = 100
 loss_fn = nn.CrossEntropyLoss()
 ntimes = 1         # number of repetition for simulation of each model
 val_size = 0.3
-run_name = f"t{int((1-val_size)*1000)}" + "_".join([model.__name__ for model in model_list])
+run_name = f"t{int((1-val_size)*N)}" + "_".join([model.__name__ for model in model_list])
 
 # hyperparameters
 batch_size = 32
-lr = 0.001
-# lr = 0.03
+# lr = 0.001
+lr = 0.03
 # weight_decay = 0.0001
 factor = 0.1        # factor to decay lr by when loss stagnates
 threshold = 0.005   # min value to be considered as improvement in loss
@@ -87,30 +88,62 @@ class CustomDataset(Dataset):
             return self.x_test[ind], self.y_test[ind]   # test data
 
 
-def plot_weight_grad(named_params, epoch, run_name):
-    pattern = re.compile("1.weight")    # pattern to filter batchnorm2d
+def plot_weight_grad(named_modules, epoch, run_name):
     weight_grad_dir = f"./weight_grad/{run_name}"
-    if not os.path.exists(weight_grad_dir):
-        os.makedirs(weight_grad_dir)
-    for name, weight in named_params:
-        if ("bias" not in name) and ("downsample" not in name) and not pattern.search(name):
-            if "conv" in name:  # conv2d layers
-                pass
-            elif "avg" in name: # landscape weighted avg. layer
-                pass
-            else:               # fc layers
-                weight_norm = (weight.detach() ** 2).sum(dim=0).sqrt().to("cpu")
-                grad_norm = (weight.grad.detach() ** 2).sum(dim=0).sqrt().to("cpu")
-                plt.figure()
-                plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
-                plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
-                if "fc" in name:
-                    plt.vlines(256, -0.05, 0.05, colors='red')
-                plt.xlabel("Nodes")
-                plt.ylabel("Weight/Grad Norm")
-                plt.title(f"Epoch:{epoch}_{name}")
-                plt.legend(['boundary', 'weight', 'grad'])
-                plt.savefig(f"{weight_grad_dir}/epoch{epoch}_{name}.png")
+    for name, m in named_modules:
+        if isinstance(m, nn.Linear):
+            weight, bias = list(m.parameters()) # weight shape: [out_dim, in_dim]
+            weight_norm = torch.abs(weight.detach()).sum(dim=0).to("cpu")       # L1 norm
+            grad_norm = torch.abs(weight.grad.detach()).sum(dim=0).to("cpu")    # L1 norm
+            plt.figure()
+            plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
+            plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
+            if 'gtheta' in name:    # gtheta layer
+                plt.vlines(len(grad_norm)-3.5, -0.05, 0.05, colors='red')
+            # else:                   # final fc layer
+            #     plt.vlines(256.5, -0.05, 0.05, colors='red')
+            plt.xlabel("Nodes")
+            plt.ylabel("Weight/Grad Norm")
+            plt.title(f"Epoch:{epoch}_{name}_L1")
+            plt.legend(["boundary", "weight norm", "grad norm"])
+            if 'gtheta' in name:
+                if not os.path.exists(weight_grad_dir + "/gtheta"):
+                    os.makedirs(weight_grad_dir + "/gtheta")
+                plt.savefig(f"{weight_grad_dir}/gtheta/epoch{epoch}_{name}.png")
+            else:
+                if not os.path.exists(weight_grad_dir + "/fc"):
+                    os.makedirs(weight_grad_dir + "/fc")
+                plt.savefig(f"{weight_grad_dir}/fc/epoch{epoch}_{name}.png")
+        elif isinstance(m, nn.Conv2d):
+            plt.figure()
+            weight, bias = list(m.parameters()) # weight shape: [out_channels, in_channels, kernal_H, kernel_W]
+            weight_norm = torch.abs(weight.detach()).sum(dim=(1,2,3)).to("cpu")     # L1 norm for each channel
+            grad_norm = torch.abs(weight.grad.detach()).sum(dim=(1,2,3)).to("cpu")
+            plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
+            plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
+            plt.xlabel("Kernels")
+            plt.xlabel("Nodes")
+            plt.ylabel("Weight/Grad Norm")
+            plt.title(f"Epoch:{epoch}_{name}_L1")
+            plt.legend(["weight norm", "grad norm"])
+            if not os.path.exists(weight_grad_dir + "/conv"):
+                os.makedirs(weight_grad_dir + "/conv")
+            plt.savefig(f"{weight_grad_dir}/conv/epoch{epoch}_{name}.png")
+        elif isinstance(m, WALandLayer):
+            weight, = list(m.parameters())  # weight shape: [1, num_dim, 1, K_max]
+            weight_norm = torch.abs(weight.detach()).view(-1).to("cpu")
+            grad_norm = torch.abs(weight.grad.detach()).view(-1).to("cpu")
+            plt.figure()
+            plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
+            plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
+            plt.vlines(2.5, -0.05, 0.05, colors='red')
+            plt.xlabel("landscapes")
+            plt.ylabel("Weight/Grad Norm")
+            plt.title(f"Epoch:{epoch}_{name}_L1")
+            plt.legend(["dim boundary", "weight norm", "grad norm"])
+            if not os.path.exists(weight_grad_dir + "/land_avg"):
+                os.makedirs(weight_grad_dir + "/land_avg")
+            plt.savefig(f"{weight_grad_dir}/land_avg/epoch{epoch}_{name}.png")
 
 
 def train(model, dataloader, loss_fn, optimizer, device, n_epoch):
@@ -128,7 +161,7 @@ def train(model, dataloader, loss_fn, optimizer, device, n_epoch):
 
         optimizer.step()
         if batch == (data_size // batch_size):  # finished one epoch
-            plot_weight_grad(model.named_parameters(), n_epoch, run_name)   # batch_size and run_name are global params
+            plot_weight_grad(model.named_modules(), n_epoch, run_name)   # batch_size and run_name are global params
         optimizer.zero_grad()
 
         if batch % 10 == 0:

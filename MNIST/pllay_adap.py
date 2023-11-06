@@ -171,35 +171,35 @@ class AdPLLayer(nn.Module):
         land, grad, t_range = AdPLCustomGrad.apply(inputs, self.T, self.K_max, self.grid_size, self.dimensions, self.robust)
         return land, t_range
 
-class AdGThetaLayer(nn.Module):
-    def __init__(self, out_features, T, dimensions=[0, 1], p=0.5):
-        """
-        Args:
-            out_features: 
-            tseq: 
-            dimensions: 
-        """
-        super().__init__()
-        self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(p=p)
-        self.g_layer = nn.Linear(T*len(dimensions) + 2*len(dimensions), out_features)
+# class AdGThetaLayer(nn.Module):
+#     def __init__(self, out_features, T, K_max, dimensions=[0, 1], p=0.5):
+#         """
+#         Args:
+#             out_features: 
+#             tseq: 
+#             dimensions: 
+#         """
+#         super().__init__()
+#         self.flatten = nn.Flatten()
+#         self.dropout = nn.Dropout(p=p)
+#         self.g_layer = nn.Linear(T*K_max*len(dimensions) + 2*len(dimensions), out_features)
 
-    def forward(self, input, t_range):
-        """
-        Args:
-            input: Tensor of shape [batch_size, len_dim, T]
+#     def forward(self, input, t_range):
+#         """
+#         Args:
+#             input: Tensor of shape [batch_size, len_dim, T]
 
-        Returns:
-            output: Tensor of shape [batch_size, out_features]
-        """
-        x = torch.concat((self.flatten(input), t_range), dim=-1)
-        x = self.dropout(x)
-        output = self.g_layer(x)
-        return output
+#         Returns:
+#             output: Tensor of shape [batch_size, out_features]
+#         """
+#         x = torch.concat((self.flatten(input), t_range), dim=-1)
+#         x = self.dropout(x)
+#         output = self.g_layer(x)
+#         return output
 
 
 class AdTopoLayer(nn.Module):
-    def __init__(self, out_features, T=50, m0=0.05, lims=[[1,-1], [-1,1]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], p=0.5, robust=True):
+    def __init__(self, out_features, T=50, m0=0.05, lims=[[27,0], [0,27]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], p=0.5, robust=True):
         """
         Args:
             out_features: 
@@ -216,8 +216,8 @@ class AdTopoLayer(nn.Module):
 
         self.dtm_layer = DTMLayer(self.grid, m0, r)
         self.landscape_layer = AdPLLayer(T, K_max, size, dimensions, robust=robust)
-        self.avg_layer = WALandLayer(K_max, dimensions)
-        self.gtheta_layer = AdGThetaLayer(out_features, T, dimensions, p)
+        # self.avg_layer = WALandLayer(K_max, dimensions)
+        self.gtheta_layer = AdGThetaLayer(out_features, T, K_max, dimensions, p)
 
     def forward(self, input):
         """
@@ -230,6 +230,6 @@ class AdTopoLayer(nn.Module):
         input_grid = self.grid.expand(input.shape[0], -1, -1).to(input.device)
         dtm_val = self.dtm_layer(input=input_grid, weight=input)
         land, t_range = self.landscape_layer(dtm_val)
-        weighted_avg_land = self.avg_layer(land)
-        output = self.gtheta_layer(weighted_avg_land, t_range)
+        # weighted_avg_land = self.avg_layer(land)
+        output = self.gtheta_layer(land, t_range)
         return output

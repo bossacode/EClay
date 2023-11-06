@@ -297,8 +297,8 @@ class WALandLayer(nn.Module):
             K_max: 
             dimensions: 
         """
-        self.land_weight = nn.Parameter(torch.tensor(1/K_max).repeat(1, len(dimensions), 1, K_max)) # weight of landscapes initialized as uniform
-        self.softmax = nn.Softmax(dim=-1)
+        softmax = nn.Softmax(dim=-1)
+        self.land_weight = nn.Parameter(softmax(torch.tensor(1/K_max).repeat(1, len(dimensions), 1, K_max))) # weight of landscapes initialized as uniform
 
     def forward(self, input):
         """
@@ -308,8 +308,7 @@ class WALandLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, len_dim, len_tseq]
         """
-        weight = self.softmax(self.land_weight)
-        output = torch.sum(input * weight, dim=-1)   # weighted average of landscapes
+        output = torch.sum(input * self.land_weight, dim=-1)   # weighted average of landscapes
         return output
 
 

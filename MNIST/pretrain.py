@@ -24,7 +24,7 @@ record_train_info = False
 record_tensorboard = False
 record_grad = False
 
-# MODEL = Pllay
+# MODEL = BasePllay
 # MODEL = ResNet18
 MODEL = AdPRNet18
 
@@ -35,9 +35,9 @@ ntimes = 1         # number of repetition for simulation of each model
 val_size = 0.3
 
 ####################################################################
-# run_name = "Pllay_50_25"
+# run_name = "BasePllay_50_25_0.2"
 # run_name = "ResNet18_2layer"
-run_name = "AdPRNet18_2layer"
+run_name = "AdPRNet18_2layer_0.05"
 ####################################################################
 
 # hyperparameters
@@ -54,8 +54,8 @@ sch_patience = 2    # lr scheduler patience
 # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
 corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
 noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-# corrupt_prob_list = [0.0]
-# noise_prob_list = [0.0]
+# corrupt_prob_list = [0.3]
+# noise_prob_list = [0.3]
 len_cn = len(corrupt_prob_list)
 file_cn_list = [None] * len_cn
 for cn in range(len_cn):
@@ -95,8 +95,8 @@ class CustomDataset(Dataset):
             return self.x_test[ind], self.y_test[ind]   # test data
 
 
-def plot_weight_grad(named_modules, epoch, run_name):
-    weight_grad_dir = f"./weight_grad/{run_name}"
+def plot_weight_grad(named_modules, epoch, run_name, cn):
+    weight_grad_dir = f"./weight_grad/{run_name}/{cn}"
     for name, m in named_modules:
         if isinstance(m, nn.Linear):
             weight, bias = list(m.parameters()) # weight shape: [out_dim, in_dim]
@@ -157,7 +157,7 @@ def plot_weight_grad(named_modules, epoch, run_name):
             plt.close()
 
 
-def train(model, dataloader, loss_fn, optimizer, device, n_epoch):
+def train(model, dataloader, loss_fn, optimizer, device, n_epoch, cn):
     data_size = len(dataloader.dataset)
     running_avg_loss, correct, avg_signal = 0, 0, 0
     model.train()
@@ -174,7 +174,7 @@ def train(model, dataloader, loss_fn, optimizer, device, n_epoch):
         optimizer.step()
         if record_grad:
             if batch == (data_size // batch_size):  # finished one epoch
-                plot_weight_grad(model.named_modules(), n_epoch, run_name)   # batch_size and run_name are global params
+                plot_weight_grad(model.named_modules(), n_epoch, run_name, cn)   # batch_size and run_name are global params
         optimizer.zero_grad()
 
         if batch % 10 == 0:
@@ -230,6 +230,8 @@ if __name__ == "__main__":
             
             torch.manual_seed(123)               
             model = MODEL().to(device)
+            if isinstance(model, AdPRNet18):
+                model.load_pretrained_pllay(f"./saved_weights/BasePllay_50_25_0.05/{file_cn_list[cn]}/BasePllay/sim{n_sim+1}.pt", freeze=False)
             optim = Adam(model.parameters(), lr)
             scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
@@ -252,7 +254,7 @@ if __name__ == "__main__":
                 print(f"Model: {MODEL.__name__}")
                 print(f"Epoch: [{n_epoch+1} / {epoch}]")
                 print("-"*30)
-                train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, device, n_epoch+1)
+                train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, device, n_epoch+1, file_cn_list[cn])
                 val_loss, val_acc = eval(model, val_dataloader, loss_fn, device)
                 
                 scheduler.step(val_loss)
@@ -269,18 +271,16 @@ if __name__ == "__main__":
                     writer.flush()
                 
                 # early stopping (if loss improvement is below threshold, it's not considered as improvement)
-                if val_loss < 2:
+                if val_loss < 2.5:
                     if (best_loss - val_loss) > threshold:
                         early_stop_counter = 0
                         best_loss = val_loss
                         best_acc = val_acc
                         best_epoch = n_epoch
                         if record_weight:
-                            print('weight recorded')
                             torch.save(model.state_dict(), weight_dir + "/" + f"sim{n_sim+1}.pt")   # save model weights
                     else:
                         early_stop_counter += 1
-                        print(early_stop_counter)
                         if early_stop_counter > es_patience:    # stop training if loss doesn't improve for es_patience + 1 epochs
                             print("-"*30)
                             print(f"Epochs: [{best_epoch+1} / {epoch}]")

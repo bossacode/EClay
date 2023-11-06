@@ -19,17 +19,19 @@ from pllay_adap import AdTopoLayer
 #         return output
 
 
-class Pllay(nn.Module):
-    def __init__(self):
+class BasePllay(nn.Module):
+    def __init__(self, out_features=50):
         super().__init__()
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(32, T=25, m0=0.05, lims=[[27, 0], [0, 27]], K_max=2, p=0, robust=True),
-                                        nn.ReLU())
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], K_max=2, p=0, robust=True),
+                                        )
         # self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-                                        # AdaptiveTopoWeightLayer(100, T=100, m0=0.2, lims=[[27, 0], [0, 27]], K_max=2, p=0, robust=True),
-                                        # nn.ReLU())
-        # self.dropout = nn.Dropout(p=0.5)
-        self.fc = nn.Linear(100, 10)
+        #                                 AdTopoLayer(50, T=100, m0=0.2, lims=[[27, 0], [0, 27]], K_max=2, p=0, robust=True),
+        #                                 nn.ReLU())
+        # self.dropout = nn.Dropout(p=0.3)
+        self.bn = nn.BatchNorm1d(out_features)
+        self.relu = nn.ReLU()
+        self.fc = nn.Linear(out_features, 10)
         # self.fc = nn.Linear(200, 10)
 
     def forward(self, input):
@@ -37,8 +39,12 @@ class Pllay(nn.Module):
         # x_2 = self.topo_layer_2(input)
         # x = self.dropout(x)
         # x = torch.concat((x_1, x_2), dim=-1)
-        output = self.fc(x_1)
-        return output
+        # x_1 = self.bn(x_1)  ################################## whether to use this or not
+        #################################################################
+        signal = torch.abs(x_1.detach()).sum(dim=0) # shape: [out_features, ]
+        #################################################################
+        output = self.fc(self.relu(x_1))
+        return output, signal
 
 
 # class BaseAdPllay_not_robust(nn.Module):
