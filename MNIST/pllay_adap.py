@@ -171,31 +171,31 @@ class AdPLLayer(nn.Module):
         land, grad, t_range = AdPLCustomGrad.apply(inputs, self.T, self.K_max, self.grid_size, self.dimensions, self.robust)
         return land, t_range
 
-# class AdGThetaLayer(nn.Module):
-#     def __init__(self, out_features, T, K_max, dimensions=[0, 1], p=0.5):
-#         """
-#         Args:
-#             out_features: 
-#             tseq: 
-#             dimensions: 
-#         """
-#         super().__init__()
-#         self.flatten = nn.Flatten()
-#         self.dropout = nn.Dropout(p=p)
-#         self.g_layer = nn.Linear(T*K_max*len(dimensions) + 2*len(dimensions), out_features)
+class AdGThetaLayer(nn.Module):
+    def __init__(self, out_features, T, K_max, dimensions=[0, 1], p=0.5):
+        """
+        Args:
+            out_features: 
+            tseq: 
+            dimensions: 
+        """
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.dropout = nn.Dropout(p=p)
+        self.g_layer = nn.Linear(T*K_max*len(dimensions) + 2*len(dimensions), out_features)
 
-#     def forward(self, input, t_range):
-#         """
-#         Args:
-#             input: Tensor of shape [batch_size, len_dim, T]
+    def forward(self, input, t_range):
+        """
+        Args:
+            input: Tensor of shape [batch_size, len_dim, T]
 
-#         Returns:
-#             output: Tensor of shape [batch_size, out_features]
-#         """
-#         x = torch.concat((self.flatten(input), t_range), dim=-1)
-#         x = self.dropout(x)
-#         output = self.g_layer(x)
-#         return output
+        Returns:
+            output: Tensor of shape [batch_size, out_features]
+        """
+        x = torch.concat((self.flatten(input), t_range), dim=-1)
+        x = self.dropout(x)
+        output = self.g_layer(x)
+        return output
 
 
 class AdTopoLayer(nn.Module):
