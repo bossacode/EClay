@@ -50,16 +50,20 @@ class ResNet(nn.Module):
         # self.res_layer_4 = self._make_layers(block, 512, cfg[3], stride=2)
 
         self.pool = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
-        # self.fc = nn.Linear(512 * block.expansion, num_classes)
-        self.fc = nn.Linear(128 * block.expansion, num_classes)
 
         # weight initialization
+        num_res_blocks = 0
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+            elif isinstance(m, ResidualBlock):
+                num_res_blocks += 1
+
+        self.num_res_layers = (np.cumsum(cfg) == num_res_blocks).nonzero()[0].item() + 1
+        self.fc = nn.Linear((2**(5+self.num_res_layers)) * block.expansion, num_classes)
 
     def _make_layers(self, block, first_conv_channel, num_blocks, stride):      
         if stride != 1 or self.in_channels != first_conv_channel * block.expansion:
@@ -91,67 +95,31 @@ class ResNet(nn.Module):
         return output, signal
 
 
-# class PllayResNet(ResNet):
-#     def __init__(self, block, cfg, out_features=32, num_classes=10):
-#         super().__init__(block, cfg, num_classes)
-#         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-#                                         TopoWeightLayer(out_features, tseq=np.linspace(0.06, 0.3, 25), m0=0.05, K_max=2),
-#                                         nn.ReLU())    # hyperparameter 수정
-#         self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-#                                         TopoWeightLayer(out_features, tseq=np.linspace(0.14, 0.4, 27), m0=0.2, K_max=3),
-#                                         nn.ReLU())     # hyperparameter 수정
-        
-#         self.fc = nn.Linear(512*block.expansion + 2*out_features, num_classes)
-    
-#     def forward(self, input):
-#         x = self.conv_layer(input)
-#         x = self.res_layer_1(x)
-#         x = self.res_layer_2(x)
-#         x = self.res_layer_3(x)
-#         x = self.res_layer_4(x)
-#         x_1 = self.pool(x)
-
-#         x_2 = self.topo_layer_1(input)
-#         x_3 = self.topo_layer_2(input)
-
-#         output = self.fc(torch.concat((x_1, x_2, x_3), dim=-1))
-#         return output
-
-
 class AdPllayResNet(ResNet):
-    def __init__(self, block, cfg, out_features=50, num_classes=10, initialize_dir=None, freeze=False):
+    def __init__(self, block, cfg, out_features=50, num_classes=10):
         super().__init__(block, cfg, num_classes)
-        # self.topo_layer_1 = nn.Sequential(nn.Flatten(),
-        #                                 AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[27, 0], [0, 27]], robust=True),  # hyperparameter 수정
-        #                                 nn.ReLU())
-        # self.topo_layer_2 = nn.Sequential(nn.Flatten(),
-        #                                 AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[27, 0], [0, 27]], robust=True),   # hyperparameter 수정
-        #                                 nn.ReLU())
-        # self.topo_layer_3 = nn.Sequential(nn.Flatten(),
-        #                         AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[27, 0], [0, 27]], robust=True),   # hyperparameter 수정
-        #                         nn.ReLU())
-        # self.topo_layer = nn.Sequential(nn.Flatten(),
-        #                         AdaptiveTopoWeightLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[27, 0], [0, 27]], robust=True),   # hyperparameter 수정
-        #                         nn.ReLU())
-
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
                                         AdTopoLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[27, 0], [0, 27]], robust=True),   # hyperparameter 수정
                                         nn.BatchNorm1d(out_features),
                                         nn.ReLU())
         
-        self.fc = nn.Linear(128*block.expansion + out_features, num_classes)
-        # self.fc = nn.Linear(512*block.expansion + out_features, num_classes)
-        # self.fc = nn.Linear(256*block.expansion + out_features, num_classes)
-        if initialize_dir:
-            for dir in initialize_dir:
-                self.load_pretrained_pllay(initialize_dir, freeze=False)
+        self.topo_layer_2 = nn.Sequential(nn.Flatten(),
+                                         AdTopoLayer(out_features, T=25, m0=0.2, K_max=2, lims=[[27, 0], [0, 27]], robust=True),   # hyperparameter 수정
+                                         nn.BatchNorm1d(out_features),
+                                         nn.ReLU())
+        
+        self.num_topo_layers = 0
+        for m in self.modules():
+            if isinstance(m, AdTopoLayer):
+                self.num_topo_layers += 1
+            elif isinstance(m, nn.BatchNorm2d): # initialize BN of topo_layers
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+        self.fc = nn.Linear((2**(5+self.num_res_layers))*block.expansion + self.num_topo_layers*out_features, num_classes)
     
     def forward(self, input):
         x = self.conv_layer(input)
-
-        # x_1 = self.topo_layer_1(x[:,0,:,:])
-        # x_2 = self.topo_layer_2(x[:,1,:,:])
-        # x_3 = self.topo_layer_3(x[:,2,:,:])
 
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
@@ -160,19 +128,27 @@ class AdPllayResNet(ResNet):
         x_0 = self.pool(x)
 
         x_1 = self.topo_layer_1(input)
-        x_2 = torch.concat((x_0, x_1), dim=-1)
+        if self.num_topo_layers == 2:
+            x_2 = self.topo_layer_2(input)
+            x_3 = torch.concat((x_0, x_1, x_2), dim=-1)
+        else:
+            x_3 = torch.concat((x_0, x_1), dim=-1)
 
-        signal = torch.abs(x_2.detach()).sum(dim=0)
-        # output = self.fc(torch.concat((x, x_0, x_1, x_2, x_3), dim=-1))
-        output = self.fc(x_2)
+        signal = torch.abs(x_3.detach()).sum(dim=0)
+        output = self.fc(x_3)
         return output, signal
 
-    def load_pretrained_pllay(self, pllay_pretrained_file, freeze=True):
-        pllay_pretrained = torch.load(pllay_pretrained_file)
+    def load_pretrained_pllay(self, pllay_pretrained_file_1, pllay_pretrained_file_2=None, freeze=False):
         model_dict = self.state_dict()
+        
+        pllay_pretrained_1 = torch.load(pllay_pretrained_file_1)
+        pllay_params_1 = {layer:params for layer, params in pllay_pretrained_1.items() if layer in model_dict and "fc" not in layer}
+        model_dict.update(pllay_params_1)
 
-        pllay_params = {layer:params for layer, params in pllay_pretrained.items() if layer in model_dict and "fc" not in layer}
-        model_dict.update(pllay_params)
+        if not (pllay_pretrained_file_2 is None):
+            pllay_pretrained_2 = torch.load(pllay_pretrained_file_2)
+            pllay_params_2 = {layer:params for layer, params in pllay_pretrained_2.items() if layer in model_dict and "fc" not in layer}
+            model_dict.update(pllay_params_2)
         
         self.load_state_dict(model_dict)
 
@@ -191,16 +167,6 @@ class ResNet18(ResNet):
 class ResNet34(ResNet):
     def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], num_classes=50):
         super().__init__(block, cfg, num_classes)
-
-
-# class PRNet18(PllayResNet):
-#     def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], out_features=32, num_classes=10):
-#         super().__init__(block, cfg, out_features, num_classes)
-
-
-# class PRNet34(PllayResNet):
-#     def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], out_features=32, num_classes=10):
-#         super().__init__(block, cfg, out_features, num_classes)
 
 
 class AdPRNet18(AdPllayResNet):
