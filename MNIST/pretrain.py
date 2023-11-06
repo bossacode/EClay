@@ -9,9 +9,8 @@ import json
 import os
 from collections import defaultdict
 from models import ResNet18, AdPRNet18
-from base_models import BasePllay
+from base_models import BasePllay_05, BasePllay_2, BasePllay_05_2
 import matplotlib.pyplot as plt
-from pllay import WALandLayer
 from generate_data import N
 
 
@@ -25,8 +24,8 @@ record_tensorboard = False
 record_grad = False
 
 # MODEL = BasePllay
-# MODEL = ResNet18
-MODEL = AdPRNet18
+MODEL = ResNet18
+# MODEL = AdPRNet18
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 epoch = 100
@@ -36,8 +35,8 @@ val_size = 0.3
 
 ####################################################################
 # run_name = "BasePllay_50_25_0.2"
-# run_name = "ResNet18_2layer"
-run_name = "AdPRNet18_2layer_0.05"
+run_name = "ResNet18_2layer"
+# run_name = "AdPRNet18_2layer_0.05_0.2"
 ####################################################################
 
 # hyperparameters
@@ -45,17 +44,17 @@ batch_size = 32
 lr = 0.001
 # lr = 0.005
 # weight_decay = 0.0001
-factor = 0.1        # factor to decay lr by when loss stagnates
+factor = 0.3        # factor to decay lr by when loss stagnates
 threshold = 0.005   # min value to be considered as improvement in loss
-es_patience = 4     # earlystopping patience
-sch_patience = 2    # lr scheduler patience
+es_patience = 8     # earlystopping patience
+sch_patience = 4    # lr scheduler patience
 
 # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
 # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
 corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
 noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-# corrupt_prob_list = [0.3]
-# noise_prob_list = [0.3]
+# corrupt_prob_list = [0.0]
+# noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
 file_cn_list = [None] * len_cn
 for cn in range(len_cn):
@@ -139,22 +138,6 @@ def plot_weight_grad(named_modules, epoch, run_name, cn):
                 os.makedirs(weight_grad_dir + "/conv")
             plt.savefig(f"{weight_grad_dir}/conv/epoch{epoch}_{name}.png")
             plt.close()
-        elif isinstance(m, WALandLayer):
-            weight, = list(m.parameters())  # weight shape: [1, num_dim, 1, K_max]
-            weight_norm = torch.abs(weight.detach()).view(-1).to("cpu")
-            grad_norm = torch.abs(weight.grad.detach()).view(-1).to("cpu")
-            plt.figure()
-            plt.bar(range(1, len(weight_norm)+1), weight_norm, color='gray')
-            plt.bar(range(1, len(grad_norm)+1), grad_norm, color='green')
-            plt.vlines(2.5, -0.05, 0.05, colors='red')
-            plt.xlabel("landscapes")
-            plt.ylabel("Weight/Grad Norm")
-            plt.title(f"Epoch:{epoch}_{name}_L1")
-            plt.legend(["dim boundary", "weight norm", "grad norm"])
-            if not os.path.exists(weight_grad_dir + "/land_avg"):
-                os.makedirs(weight_grad_dir + "/land_avg")
-            plt.savefig(f"{weight_grad_dir}/land_avg/epoch{epoch}_{name}.png")
-            plt.close()
 
 
 def train(model, dataloader, loss_fn, optimizer, device, n_epoch, cn):
@@ -231,8 +214,12 @@ if __name__ == "__main__":
             torch.manual_seed(123)               
             model = MODEL().to(device)
             if isinstance(model, AdPRNet18):
-                model.load_pretrained_pllay(f"./saved_weights/BasePllay_50_25_0.05/{file_cn_list[cn]}/BasePllay/sim{n_sim+1}.pt", freeze=False)
-            optim = Adam(model.parameters(), lr)
+                model.load_pretrained_pllay(f"./saved_weights/BasePllay_50_25_0.05/{file_cn_list[cn]}/BasePllay/sim{n_sim+1}.pt",
+                                            f"./saved_weights/BasePllay_50_25_0.2/{file_cn_list[cn]}/BasePllay/sim{n_sim+1}.pt", freeze=False)
+            # optim = Adam(model.parameters(), lr)
+            optim = Adam([{"params":[p for name, p in model.named_parameters() if 'topo' in name], "lr":0.003},
+                          {"params":[p for name, p in model.named_parameters() if 'topo' not in name]}],
+                          lr=lr)
             scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
             if record_train_info:
