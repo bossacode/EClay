@@ -27,9 +27,9 @@ class ResidualBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, cfg, num_classes=10):
+    def __init__(self, block, cfg, num_classes=7):
         super().__init__()
-        self.in_channels = 64   # channel of input that goes into res_layer1
+        self.in_channels = 64   # channel of input that goes into res_layer1, values changes in _make_layers
 
         self.conv_layer = nn.Sequential(nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3),
                                         nn.BatchNorm2d(self.in_channels),
@@ -153,15 +153,15 @@ class AdPllayResNet(ResNet):
 
 
 class ResNet18(ResNet):
-    def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], num_classes=10):
+    def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], num_classes=7):
         super().__init__(block, cfg, num_classes)
 
 
 class ResNet34(ResNet):
-    def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], num_classes=50):
+    def __init__(self, block=ResidualBlock, cfg=[3,4,6,3], num_classes=7):
         super().__init__(block, cfg, num_classes)
 
 
 class AdPRNet18(AdPllayResNet):
-    def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], out_features=50, num_classes=10):
+    def __init__(self, block=ResidualBlock, cfg=[2,2,2,2], out_features=50, num_classes=7):
         super().__init__(block, cfg, out_features, num_classes)

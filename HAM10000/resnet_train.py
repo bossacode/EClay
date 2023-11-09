@@ -8,8 +8,7 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 from collections import defaultdict
-from models import ResNet18
-from base_models import BasePllay_05, BasePllay_2, BasePllay_05_2
+from models import ResNet18, ResNet34
 import matplotlib.pyplot as plt
 from generate_data import N
 
@@ -19,14 +18,15 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 record_weight = True
-record_train_info = True
-record_tensorboard = True
-record_grad = True
+record_train_info = False
+record_tensorboard = False
+record_grad = False
 
+MODEL = ResNet18
 device = "cuda" if torch.cuda.is_available() else "cpu"
-epoch = 100
+epoch = 1000
 loss_fn = nn.CrossEntropyLoss()
-ntimes = 10         # number of repetition for simulation of each model
+ntimes = 1         # number of repetition for simulation of each model
 val_size = 0.3
 
 ####################################################################
@@ -34,18 +34,18 @@ run_name = "ResNet18_2layer"
 ####################################################################
 
 # hyperparameters
-batch_size = 32
+batch_size = 128
 lr = 0.001
 # weight_decay = 0.0001
-factor = 0.3        # factor to decay lr by when loss stagnates
+factor = 0.1        # factor to decay lr by when loss stagnates
 threshold = 0.005   # min value to be considered as improvement in loss
-es_patience = 8     # earlystopping patience
-sch_patience = 3    # lr scheduler patience
+es_patience = 25     # earlystopping patience
+sch_patience = 10    # lr scheduler patience
 
-corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
-noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-# corrupt_prob_list = [0.0]
-# noise_prob_list = [0.0]
+# corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
+# noise_prob_list = [0.0, 0.1, 0.2, 0.3]
+corrupt_prob_list = [0.0]
+noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
 file_cn_list = [None] * len_cn
 for cn in range(len_cn):
@@ -206,7 +206,7 @@ if __name__ == "__main__":
             val_dataloader = DataLoader(val_dataset, batch_size, shuffle=False)
 
             torch.manual_seed(123)               
-            model = ResNet18().to(device)
+            model = MODEL().to(device)
             optim = Adam(model.parameters(), lr)
             scheduler = ReduceLROnPlateau(optim, factor=factor, patience=sch_patience, threshold=threshold)
 
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
             # loop over epoch
             for n_epoch in range(epoch):
-                print(f"Model: {ResNet18.__name__}")
+                print(f"Model: {MODEL.__name__}")
                 print(f"Epoch: [{n_epoch+1} / {epoch}]")
                 print("-"*30)
                 train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, device, n_epoch+1, file_cn_list[cn], n_sim+1)

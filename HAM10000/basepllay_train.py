@@ -18,16 +18,17 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 record_weight = True
-record_train_info = True
-record_tensorboard = True
-record_grad = True
+record_train_info = False
+record_tensorboard = False
+record_grad = False
 
-model_list = [BasePllay_05, BasePllay_2, BasePllay_05_2]
+# model_list = [BasePllay_05, BasePllay_2, BasePllay_05_2]
+model_list = [BasePllay_05]
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-epoch = 100
+epoch = 1000
 loss_fn = nn.CrossEntropyLoss()
-ntimes = 10         # number of repetition for simulation of each model
+ntimes = 1         # number of repetition for simulation of each model
 val_size = 0.3
 
 ####################################################################
