@@ -1,0 +1,16 @@
+HAM10000/__pycache__
+HAM10000/generated_data
+HAM10000/HAM10000_images_part_1
+HAM10000/HAM10000_tensors
+HAM10000/ISIC2018_Task3_Test_Images
+HAM10000/runs
+HAM10000/saved_weights
+HAM10000/test_info
+
+
+KMNIST/raw_data
+KMNIST/generated_data
+
+
+MNIST/raw_data
+MNIST/generated_data
