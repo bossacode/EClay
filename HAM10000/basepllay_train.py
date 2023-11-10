@@ -5,6 +5,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 import json
 import os
 from collections import defaultdict
@@ -41,13 +42,13 @@ lr = 0.005
 # weight_decay = 0.0001
 factor = 0.3        # factor to decay lr by when loss stagnates
 threshold = 0.005   # min value to be considered as improvement in loss
-es_patience = 8     # earlystopping patience
-sch_patience = 3    # lr scheduler patience
+es_patience = 20     # earlystopping patience
+sch_patience = 10    # lr scheduler patience
 
-corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
-noise_prob_list = [0.0, 0.1, 0.2, 0.3]
-# corrupt_prob_list = [0.0]
-# noise_prob_list = [0.0]
+# corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
+# noise_prob_list = [0.0, 0.1, 0.2, 0.3]
+corrupt_prob_list = [0.0]
+noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
 file_cn_list = [None] * len_cn
 for cn in range(len_cn):
@@ -169,6 +170,7 @@ def train(model, dataloader, loss_fn, optimizer, device, n_epoch, cn, sim):
 def eval(model, dataloader, loss_fn, device):
     data_size = len(dataloader.dataset)
     loss, correct, avg_signal = 0, 0, 0
+    y_pred_list, y_list = [], []
     model.eval()
     with torch.no_grad():
         for batch, (X, y) in enumerate(dataloader):
@@ -177,10 +179,16 @@ def eval(model, dataloader, loss_fn, device):
             loss += (loss_fn(y_pred, y).item() * len(y))
             correct += (y_pred.argmax(1) == y).sum().item()
             avg_signal += signal
+            y_pred_list.append(y_pred.argmax(1))
+            y_list.append(y)
     loss /= data_size
     accuracy = (correct / data_size) * 100
     avg_signal /= data_size
+    predicted = torch.concat(y_pred_list).detach().to("cpu")
+    ground_truth = torch.concat(y_list).detach().to("cpu")
+    report = classification_report(ground_truth, predicted, zero_division=0)
     print(f"Validation/Test error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    # print(report, "\n")
     # print(f"Average signal:\n{avg_signal}\n{avg_signal.mean().item()}\n")
     return loss, accuracy
 

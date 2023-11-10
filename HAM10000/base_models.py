@@ -9,15 +9,15 @@ class BasePllay_05(nn.Module):
     def __init__(self, out_features=50):
         super().__init__()
         self.topo_layer_11 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_12 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_13 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
-        # self.bn = nn.BatchNorm1d(out_features)
+        self.bn = nn.BatchNorm1d(out_features)
         self.relu = nn.ReLU()
         self.fc = nn.Linear(3*out_features, 7)
 
@@ -38,13 +38,13 @@ class BasePllay_2(nn.Module):
     def __init__(self, out_features=50):
         super().__init__()
         self.topo_layer_21 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_22 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_23 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         # self.bn = nn.BatchNorm1d(out_features)
         self.relu = nn.ReLU()
@@ -67,22 +67,22 @@ class BasePllay_05_2(nn.Module):
     def __init__(self, out_features=50):
         super().__init__()
         self.topo_layer_11 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_12 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_13 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.05, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_21 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_22 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         self.topo_layer_23 = nn.Sequential(nn.Flatten(),
-                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[223, 0], [0, 223]], size=[224, 224], K_max=2, p=0, robust=True),
+                                        AdTopoLayer(out_features, T=25, m0=0.2, lims=[[27, 0], [0, 27]], size=[28, 28], K_max=2, p=0, robust=True),
                                         )
         # self.bn = nn.BatchNorm1d(out_features)
         self.relu = nn.ReLU()

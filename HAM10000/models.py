@@ -31,16 +31,20 @@ class ResNet(nn.Module):
         super().__init__()
         self.in_channels = 64   # channel of input that goes into res_layer1, values changes in _make_layers
 
-        self.conv_layer = nn.Sequential(nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3),
-                                        nn.BatchNorm2d(self.in_channels),
-                                        nn.ReLU())
-        
-        self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        # self.conv_layer = nn.Sequential(nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3),
+        #                                 nn.BatchNorm2d(self.in_channels),
+        #                                 nn.ReLU())
+        # self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.conv_layer = nn.Sequential(nn.Conv2d(3, self.in_channels, kernel_size=3, stride=1, padding=1),
+                                nn.BatchNorm2d(self.in_channels),
+                                nn.ReLU())
+        self.max_pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
         
         self.res_layer_1 = self._make_layers(block, 64, cfg[0], stride=1)
         self.res_layer_2 = self._make_layers(block, 128, cfg[1], stride=2)
         self.res_layer_3 = self._make_layers(block, 256, cfg[2], stride=2)
-        self.res_layer_4 = self._make_layers(block, 512, cfg[3], stride=2)
+        # self.res_layer_4 = self._make_layers(block, 512, cfg[3], stride=2)
 
         self.pool = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
 
@@ -79,7 +83,7 @@ class ResNet(nn.Module):
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
         x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
+        # x = self.res_layer_4(x)
         x = self.pool(x)
         ####################################################
         signal = torch.abs(x.detach()).sum(dim=0)
@@ -89,7 +93,7 @@ class ResNet(nn.Module):
 
 
 class AdPllayResNet(ResNet):
-    def __init__(self, block, cfg, out_features=50, num_classes=10):
+    def __init__(self, block, cfg, out_features=50, num_classes=7):
         super().__init__(block, cfg, num_classes)
         self.topo_layer_1 = nn.Sequential(nn.Flatten(),
                                         AdTopoLayer(out_features, T=25, m0=0.05, K_max=2, lims=[[224, 0], [0, 224]], robust=True),   # hyperparameter 수정
@@ -116,7 +120,7 @@ class AdPllayResNet(ResNet):
 
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
-        # x = self.res_layer_3(x)
+        x = self.res_layer_3(x)
         # x = self.res_layer_4(x)
         x_0 = self.pool(x)
 
