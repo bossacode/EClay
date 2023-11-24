@@ -90,7 +90,7 @@ def dtm_using_knn(knn_dist, knn_index, weight, weight_bound, r=2):
 
 
 class DTMLayer(nn.Module):
-    def __init__(self, m0, lims, size, r=2, device="cpu"):
+    def __init__(self, m0, lims, size, r=2, device="cpu", scale_dtm=False):
         """
         Args:
             m0: 
@@ -104,6 +104,7 @@ class DTMLayer(nn.Module):
         self.dist = cal_dist(grid)
         self.m0 = m0
         self.r = r
+        self.scale_dtm = scale_dtm
         
     def forward(self, weight):
         """
@@ -126,4 +127,6 @@ class DTMLayer(nn.Module):
 
         knn_dist, knn_index = self.dist.topk(max_k, largest=False, dim=-1)  # knn, shape: [(H*W), max_k]
         dtm_val = dtm_using_knn(knn_dist, knn_index, weight, weight_bound, self.r)
+        if self.scale_dtm:
+            dtm_val = dtm_val * (weight.max(dim=1, keepdim=True).values / dtm_val.max(dim=1, keepdim=True).values)  # Think about multiplying weight.max
         return dtm_val
