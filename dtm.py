@@ -42,50 +42,52 @@ def cal_dist(grid, r=2):
     return dist
 
 
-def dtm_using_knn(knn_dist, knn_index, weight, weight_bound, r=2):
+def dtm_using_knn(knn_dist, knn_index, input, bound, r=2):
     """
     Weighted DTM using KNN.
 
     Args:
         knn_dist: Tensor of shape [(H*W), max_k]
         knn_index: Tensor of shape [(H*W), max_k]
-        weight: Tensor of shape [batch_size, (H*W)]               # grad
-        weight_bound: Tensor of shape [batch_size, 1]             # grad
+        input: Tensor of shape [batch_size, C, (H*W)]         # grad
+        bound: Tensor of shape [batch_size, C, 1]             # grad
         r: Int r-Norm
 
     Returns:
-        dtm_val: Tensor of shape [batch_size, (H*W)]
+        dtm_val: Tensor of shape [batch_size, C, (H*W)]
     """
-    HW = weight.shape[-1]
+    B = input.shape[0]
+    C = input.shape[1]
+    HW = input.shape[-1]
     
-    weight_temp = weight.unsqueeze(1).expand(-1, HW, -1)                        # shape: [batch_size, (H*W), (H*W)]
-    knn_index = knn_index.unsqueeze(0).expand(weight.shape[0], -1, -1)          # shape: [batch_size, (H*W), k]
-    knn_weight = torch.gather(weight_temp, -1, knn_index)                       # shape: [batch_size, (H*W), k]    
+    input_temp = input.unsqueeze(2).expand(-1, -1, HW, -1)                  # shape: [batch_size, C, (H*W), (H*W)]
+    knn_index = knn_index.view(1, 1, HW, -1).expand(B, C, -1, -1)           # shape: [batch_size, C, (H*W), k]
+    knn_weight = torch.gather(input_temp, -1, knn_index)                    # shape: [batch_size, C, (H*W), k]    
 
     # finding k's s.t. sum({Wi: Wi in (k-1)-NN}) < m0*sum({Wi: i=1...n}) <= sum({Wi: Wi in k-NN})
-    cum_knn_weight = knn_weight.cumsum(-1)                                      # shape: [batch_size, (H*W), k]
-    weight_bound = weight_bound.unsqueeze(-1)                                   # shape: [batch_size, 1, 1]
-    k = torch.searchsorted(cum_knn_weight, weight_bound.repeat(1, HW, 1))       # shape: [batch_size, (H*W), 1]
+    cum_knn_weight = knn_weight.cumsum(-1)                                  # shape: [batch_size, C, (H*W), k]
+    bound = bound.unsqueeze(-1)                                             # shape: [batch_size, C, 1, 1]
+    k = torch.searchsorted(cum_knn_weight, bound.repeat(1, 1, HW, 1))       # shape: [batch_size, C, (H*W), 1]
     
     # prevent index out of bounds error when some values of k_index equal HW
     if (k == HW).any():
         k[k == HW] -= 1
 
     if r == 2:
-        r_dist = knn_dist.square().unsqueeze(0).expand(weight.shape[0], -1, -1)             # shape: [batch_size, (H*W), k]
-        cum_dist = torch.cumsum(r_dist * knn_weight, -1)                                    # shape: [batch_size, (H*W), k]
-        dtm_val = torch.gather(cum_dist + r_dist*(weight_bound-cum_knn_weight), -1, k)      # shape: [batch_size, (H*W), 1]
-        dtm_val = torch.sqrt(dtm_val/weight_bound)
+        r_dist = knn_dist.square().view(1, 1, HW, -1).expand(B, C, -1, -1)          # shape: [batch_size, C, (H*W), k]
+        cum_dist = torch.cumsum(r_dist * knn_weight, -1)                            # shape: [batch_size, C, (H*W), k]
+        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)     # shape: [batch_size, C, (H*W), 1]
+        dtm_val = torch.sqrt(dtm_val/bound)
     elif r == 1:
-        r_dist = knn_dist.unsqueeze(0).expand(weight.shape[0], -1, -1)
+        r_dist = knn_dist.view(1, 1, HW, -1).expand(B, C, -1, -1)
         cum_dist = torch.cumsum(r_dist * knn_weight, -1)
-        dtm_val = torch.gather(cum_dist + r_dist*(weight_bound-cum_knn_weight), -1, k)
-        dtm_val = dtm_val/weight_bound
+        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)
+        dtm_val = dtm_val/bound
     else:
-        r_dist = knn_dist.pow(r).unsqueeze(0).expand(weight.shape[0], -1, -1)
+        r_dist = knn_dist.pow(r).view(1, 1, HW, -1).expand(B, C, -1, -1)
         cum_dist = torch.cumsum(r_dist * knn_weight, -1)
-        dtm_val = torch.gather(cum_dist + r_dist*(weight_bound-cum_knn_weight), -1, k)
-        dtm_val = torch.pow(dtm_val/weight_bound, 1/r)
+        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)
+        dtm_val = torch.pow(dtm_val/bound, 1/r)
     return dtm_val.squeeze(-1) 
 
 
@@ -105,28 +107,31 @@ class DTMLayer(nn.Module):
         self.m0 = m0
         self.r = r
         self.scale_dtm = scale_dtm
+        self.flatten = nn.Flatten(start_dim=-2)
         
-    def forward(self, weight):
+    def forward(self, input):
         """
         Args:
-            weight: Tensor of shape [batch_size, (H*W)]       # grad
+            input: Tensor of shape [batch_size, C, H, W]       # grad
 
         Returns:
-            dtm_val: Tensor of shape [batch_size, (H*W)]
+            dtm_val: Tensor of shape [batch_size, C, H, W]
         """
-        weight_bound = self.m0 * weight.sum(-1, keepdim=True)               # shape: [batch_size, 1]
+        in_shape = input.shape
+        input = self.flatten(input)                             # shape: [batch_size, C, (H*W)]
+        bound = self.m0 * input.sum(-1, keepdim=True)    # shape: [batch_size, C, 1]
         
         # find max k among k's of each data s.t. sum({Wi: Wi in (k-1)-NN}) < m0*sum({Wi: i=1...n}) <= sum({Wi: Wi in k-NN})
         with torch.no_grad():
-            sorted_weight = torch.sort(weight, -1).values                   # shape: [batch_size, (H*W)]
-            sorted_weight_cumsum = sorted_weight.cumsum(-1)                 # shape: [batch_size, (H*W)]
-            max_k = torch.searchsorted(sorted_weight_cumsum, weight_bound).max().item() + 1
+            sorted_input = torch.sort(input, -1).values         # shape: [batch_size, C, (H*W)]
+            sorted_input_cumsum = sorted_input.cumsum(-1)       # shape: [batch_size, C, (H*W)]
+            max_k = torch.searchsorted(sorted_input_cumsum, bound).max().item() + 1
             
-            if max_k > weight.shape[-1]:    # when max_k is out of range (max_k > H*W)
-                max_k = weight.shape[-1]
+            if max_k > input.shape[-1]:    # when max_k is out of range (max_k > H*W)
+                max_k = input.shape[-1]
 
         knn_dist, knn_index = self.dist.topk(max_k, largest=False, dim=-1)  # knn, shape: [(H*W), max_k]
-        dtm_val = dtm_using_knn(knn_dist, knn_index, weight, weight_bound, self.r)
+        dtm_val = dtm_using_knn(knn_dist, knn_index, input, bound, self.r)
         if self.scale_dtm:
-            dtm_val = dtm_val * (weight.max(dim=1, keepdim=True).values / dtm_val.max(dim=1, keepdim=True).values)  # Think about multiplying weight.max
-        return dtm_val
+            dtm_val = dtm_val * (input.max(dim=-1, keepdim=True).values / dtm_val.max(dim=-1, keepdim=True).values)  # Think about multiplying input.max
+        return dtm_val.view(*in_shape)
