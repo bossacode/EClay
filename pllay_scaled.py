@@ -2,7 +2,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import gudhi
+from torch_topological.nn import CubicalComplex
+from torch_topological.utils import SelectByDimension
+from itertools import chain
 from dtm import DTMLayer
+
 
 class AdPLCustomGrad(torch.autograd.Function):
     @staticmethod
@@ -116,7 +120,7 @@ class ScaledPLLayer(nn.Module):
     def __init__(self, T=100, K_max=2, grid_size=[28, 28], dimensions=[0, 1]):
         """
         Args:
-            tseq: 
+            T: 
             K_max: 
             grid_size: 
             dimensions: 
@@ -132,13 +136,78 @@ class ScaledPLLayer(nn.Module):
         Args:
             input: Tensor of shape [batch_size, (C*H*W)]
         Returns:
-            landscape: Tensor of shape [batch_size, len_dim, len_tseq, k_max]
+            landscape: Tensor of shape [batch_size, len_dim, T, k_max]
         """
         land, grad = AdPLCustomGrad.apply(input, self.T, self.K_max, self.grid_size, self.dimensions)
         return land
 
+
+class PL(nn.Module):
+    def __init__(self, T=100, K_max=2, dimensions=[0,1]):
+        """
+        Args:
+            T: 
+            K_max: 
+            dimensions: 
+        """
+        super().__init__()
+        self.T = T
+        self.K_max = K_max
+        self.dimensions = dimensions
+        self.len_dim = len(dimensions)
+        self.cub_cpx = CubicalComplex(superlevel=False, dim=2)
+        self.select_by_dim = [(dim, SelectByDimension(min_dim=dim, max_dim=dim)) for dim in dimensions]
+
+    def forward(self, input):
+        """
+        Args:
+            input: Tensor of shape [batch_size, C, H, W]
+        Returns:
+            landscape: Tensor of shape [batch_size, len_dim, K_max, (T*C)]
+        """
+        B = input.shape[0]
+        C = input.shape[1]
+        landscape = torch.zeros(B, self.len_dim, self.K_max, self.T*C) # shape: [batch_size, len_dim, K_max, (T*C)]
+
+        pers_info_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
+        for data in range(B):
+            for i, (dim, select_dim) in enumerate(self.select_by_dim):
+                pi_list = select_dim(chain(*pers_info_list[data]))  # list of persistence informations corresponding to dimension "dim" for all channels
+                assert pi_list, "dimension out of bounds"           # if empty list, dimension is out of bounds
+                pl = self._pi_list_to_pl(pi_list, dim)    # shape: [K_max, (T*C)]
+                landscape[data, i] = pl
+        return landscape
+
+    def _pi_list_to_pl(self, pi_list, dim):
+        """
+        Args:
+            pi_list: list consisting of persistence informations
+            dim: dimension of homology feature
+        Returns:
+            persistence landscapes of dimension "dim" concatenated for all channels, tensor of shape [K_max, (T*C)]
+        """
+        pl_list = []
+        for pi in pi_list:
+            pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0, shape: [n, 2]
+            num_ph = pd.shape[0]    # number of homology features (= n)
+            if num_ph == 0:         # no homology feature
+                pl = torch.zeros(self.K_max, self.T)
+                pl_list.append(pl)
+                continue
+            
+            birth = pd[:, 0].view(-1, 1)                    # shape: [n, 1]
+            death = pd[:, 1].view(-1, 1)                    # shape: [n, 1]
+            tseq = torch.linspace(0, 1, self.T).view(1, -1) # shape: [1, T]
+
+            temp = torch.zeros(max(num_ph, self.K_max), self.T)
+            temp[:num_ph, :] = torch.maximum(torch.minimum(tseq - birth, death - tseq), torch.tensor(0))    # shape: [n, T]
+            pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
+            pl_list.append(pl)
+        return torch.concat(pl_list, dim=-1)   # shape: [K_max, (T*C)]
+
+
 class AdGThetaLayer(nn.Module):
-    def __init__(self, out_features, T, K_max=2, dimensions=[0, 1]):
+    def __init__(self, out_features, T=100, K_max=2, dimensions=[0, 1]):
         """
         Args:
             out_features: 
@@ -176,7 +245,6 @@ class ScaledTopoLayer(nn.Module):
             dimensions: 
         """
         super().__init__()
-        self.flatten = nn.Flatten()
         self.dtm_layer = DTMLayer(m0, lims, size, r, device, scale_dtm=True)
         self.landscape_layer = ScaledPLLayer(T, K_max, size, dimensions)
         self.gtheta_layer = AdGThetaLayer(out_features, T, K_max, dimensions)
@@ -184,13 +252,12 @@ class ScaledTopoLayer(nn.Module):
     def forward(self, input):
         """
         Args:
-            input: Tensor of shape [batch_size, (C*H*W)]
+            input: Tensor of shape [batch_size, C, H, W]
 
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        x = self.flatten(input)
-        dtm_val = self.dtm_layer(weight=x)
+        dtm_val = self.dtm_layer(input)
         land = self.landscape_layer(dtm_val)
         output = self.gtheta_layer(land)
         return output
