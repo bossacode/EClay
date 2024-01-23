@@ -44,18 +44,20 @@ class EC_Layer(nn.Module):
             ec: Tensor of shape [batch_size, C, T]
         """
         batch_size = input.shape[0]
+        input_device = input.device
+        if input_device.type != "cpu":
+            input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
         
-        pi = self.cub_cpx(input)
         ec = torch.zeros(batch_size, self.num_channels, self.T)
-        
+        pi_list = self.cub_cpx(input)
         for b in range(batch_size):
             for c in range(self.num_channels):
-                pd_0 = pi[b][c][0].diagram
-                pd_1 = pi[b][c][1].diagram
+                pd_0 = pi_list[b][c][0].diagram
+                pd_1 = pi_list[b][c][1].diagram
                 betti_0 = torch.logical_and(pd_0[:, 0].view(-1, 1) < self.tseq, pd_0[:, 1].view(-1, 1) >= self.tseq).sum(dim=0)
                 betti_1 = torch.logical_and(pd_1[:, 0].view(-1, 1) < self.tseq, pd_1[:, 1].view(-1, 1) >= self.tseq).sum(dim=0)
                 ec[b, c, :] = betti_0 - betti_1
-        return ec
+        return ec if input_device == "cpu" else ec.to(input_device)
     
 
 # class EC_Layer2(nn.Module):
