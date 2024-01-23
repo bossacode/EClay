@@ -143,7 +143,7 @@ from dtm import DTMLayer
 
 
 class ScaledPLLayer(nn.Module):
-    def __init__(self, T=100, K_max=2, dimensions=[0,1]):
+    def __init__(self, T=50, K_max=2, dimensions=[0,1], num_channels=3):
         """
         Args:
             T: 
@@ -156,103 +156,67 @@ class ScaledPLLayer(nn.Module):
         self.K_max = K_max
         self.dimensions = dimensions
         self.len_dim = len(dimensions)
+        self.num_channels = num_channels
         self.cub_cpx = CubicalComplex(superlevel=False, dim=2)
-        self.select_by_dim = [(dim, SelectByDimension(min_dim=dim, max_dim=dim)) for dim in dimensions]
 
     def forward(self, input):
         """
         Args:
-            input: Tensor of shape [batch_size, C, H, W]
+            input: Tensor of shape [batch_size, num_channels, H, W]
         Returns:
-            landscape: Tensor of shape [batch_size, len_dim, K_max, (T*C)]
+            landscape: Tensor of shape [batch_size, num_channels, len_dim, K_max, T]
         """
-        B = input.shape[0]
-        C = input.shape[1]
+        batch_size = input.shape[0]
         input_device = input.device
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
 
-        landscape = torch.zeros(B, self.len_dim, self.K_max, self.T*C) # shape: [batch_size, len_dim, K_max, (T*C)]
-        pers_info_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
-        for b in range(B):
-            for i, (dim, select_dim) in enumerate(self.select_by_dim):
-                pi_list = select_dim(chain(*pers_info_list[b])) # list of persistence informations corresponding to dimension "dim" for all channels
-                assert pi_list, "dimension out of bounds"       # if empty list, dimension is out of bounds
-                pl = self._pi_list_to_pl(pi_list, dim)          # shape: [K_max, (T*C)]
-                landscape[b, i] = pl
+        landscape = torch.zeros(batch_size, self.num_channels, self.len_dim, self.K_max, self.T)
+        pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
+        for b in range(batch_size):
+            for c in range(self.num_channels):
+                for d, dim in enumerate(self.dimensions):
+                    pi = pi_list[b][c][dim]     # error if "dim" is out of range
+                    pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
+                    pl = self._pd_to_pl(pd)
+                    landscape[b, c, d, :, :] = pl
         return landscape if input_device == "cpu" else landscape.to(input_device)
 
-    def _pi_list_to_pl(self, pi_list, dim):
+    def _pd_to_pl(self, pd):
         """
         Args:
-            pi_list: list consisting of persistence information of each channel
-            dim: dimension of homology feature
+            pd: persistence diagram, shape: [n, 2]
         Returns:
-            persistence landscapes of dimension "dim" concatenated for all channels, tensor of shape [K_max, (T*C)]
+            pl: persistence landscapes, shape: [K_max, T]
         """
-        pl_list = []
-        for pi in pi_list:
-            pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0, shape: [n, 2]
-            num_ph = pd.shape[0]    # number of homology features (= n)
-            if num_ph == 0:         # no homology feature
-                pl = torch.zeros(self.K_max, self.T)
-                pl_list.append(pl)
-                continue
+        num_ph = pd.shape[0]    # number of homology features (= n)
+        if num_ph == 0:         # no homology feature
+            return torch.zeros(self.K_max, self.T)
             
-            birth = pd[:, 0].view(-1, 1)    # shape: [n, 1]
-            death = pd[:, 1].view(-1, 1)    # shape: [n, 1]
-
-            temp = torch.zeros(max(num_ph, self.K_max), self.T)
-            temp[:num_ph, :] = torch.maximum(torch.minimum(self.tseq - birth, death - self.tseq), torch.tensor(0))    # shape: [n, T]
-            pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
-            pl_list.append(pl)
-        return torch.concat(pl_list, dim=-1)   # shape: [K_max, (T*C)]
-
-
-class AdGThetaLayer(nn.Module):
-    def __init__(self, out_features, T=100, K_max=2, dimensions=[0, 1], num_channels=3):
-        """
-        Args:
-            out_features: 
-            T:
-            K_max: 
-            dimensions: 
-            num_channels: 
-        """
-        super().__init__()
-        self.flatten = nn.Flatten()
-        self.g_layer = nn.Linear(len(dimensions)*K_max*T*num_channels, out_features)
-
-    def forward(self, input):
-        """
-        Args:
-            input: Tensor of shape [batch_size, len_dim, K_max, (T*C)]
-
-        Returns:
-            output: Tensor of shape [batch_size, out_features]
-        """
-        x = self.flatten(input)
-        output = self.g_layer(x)
-        return output
+        birth = pd[:, [0]]  # shape: [n, 1]
+        death = pd[:, [1]]  # shape: [n, 1]
+        temp = torch.zeros(max(num_ph, self.K_max), self.T)
+        temp[:num_ph, :] = torch.maximum(torch.minimum(self.tseq - birth, death - self.tseq), torch.tensor(0))    # shape: [n, T]
+        pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
+        return pl
 
 
 class ScaledTopoLayer(nn.Module):
-    def __init__(self, out_features, m0=0.05, T=50, lims=[[1,28], [1,28]], size=[28, 28], r=2, K_max=2, dimensions=[0, 1], device="cpu"):
+    def __init__(self, T=50, K_max=2, dimensions=[0, 1], num_channels=3, out_features=100, p=0):
         """
         Args:
-            out_features: 
             T: 
-            m0: 
-            lims: 
-            size: 
-            r: 
             K_max: 
             dimensions: 
+            num_channels: number of channels in input
+            out_features: output dimension of fc layer
+            p: dropout probability
         """
         super().__init__()
-        self.dtm_layer = DTMLayer(m0, lims, size, r, device, scale_dtm=True)
-        self.landscape_layer = ScaledPLLayer(T, K_max, size, dimensions)
-        self.gtheta_layer = AdGThetaLayer(out_features, T, K_max, dimensions)
+        self.landscape_layer = ScaledPLLayer(T, K_max, dimensions, num_channels)
+        self.flatten = nn.Flatten()
+        self.dropout = nn.Dropout(p)
+        self.gtheta_layer = nn.Linear(num_channels * len(dimensions) * K_max * T, out_features)
 
     def forward(self, input):
         """
@@ -262,7 +226,7 @@ class ScaledTopoLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        dtm_val = self.dtm_layer(input)
-        land = self.landscape_layer(dtm_val)
+        land = self.landscape_layer(input)
+        land = self.dropout(self.flatten(land)) # shape: [batch_size, (num_channels * len_dim * K_max * T)]
         output = self.gtheta_layer(land)
         return output
