@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+from dtm import DTMLayer
 from pllay_adap import AdTopoLayer
 from pllay_scaled import ScaledTopoLayer
+from ec import EC_TopoLayer
 
-
-class BasePllay_05(nn.Module):
+class BasePllay(nn.Module):
     def __init__(self, in_channels, num_classes, out_features, m0=0.05, **kwargs):
         super().__init__()
         assert in_channels in (1,3)
@@ -33,59 +34,81 @@ class BasePllay_05(nn.Module):
         return output
 
 
-class BasePllay_2(nn.Module):
-    def __init__(self, in_channels, num_classes, out_features, m0=0.2, **kwargs):
+class ScaledPllay(nn.Module):
+    def __init__(self, num_classes,
+                 T=50, K_max=2, dimensions=[0, 1], num_channels=3, out_features=100, p=0,   # PL parameters
+                 use_dtm=False, **kwargs):  # DTM parameters
+        """
+        Args:
+            out_features: output dimension of fc layer
+            num_classes: number of classes for classification
+            use_dtm: whether to use DTM filtration
+            kwargs: parameters for dtm
+                    ex) m0=0.05, lims=[[1,28], [1,28]], size=[28, 28], r=2
+        """
         super().__init__()
-        assert in_channels in (1,3)
-        self.in_channels = in_channels
-        self.flatten = nn.Flatten()
-        
-        self.topo_layer_21 = AdTopoLayer(out_features, **kwargs)
-        if in_channels == 3:
-            self.topo_layer_22 = AdTopoLayer(out_features, **kwargs)
-            self.topo_layer_23 = AdTopoLayer(out_features, **kwargs)
+        self.use_dtm = use_dtm
+        if use_dtm:
+            self.dtm = DTMLayer(**kwargs, scale_dtm=True)
+        self.topo_layer = ScaledTopoLayer(T, K_max, dimensions, num_channels, out_features, p)
 
-        # self.bn = nn.BatchNorm1d(in_channesl*out_features)
+        # self.bn = nn.BatchNorm1d(out_features)
         self.relu = nn.ReLU()
-        self.fc = nn.Linear(in_channels*out_features, num_classes)
+        self.fc = nn.Linear(out_features, num_classes)
 
     def forward(self, input):
-        if self.in_channels == 1:
-            x = self.topo_layer_21(self.flatten(input))
+        """
+        Args:
+            input: Tensor of shape [batch_size, num_channels, H, W]
+
+        Returns:
+            output: Tensor of shape [batch_size, num_classes]
+        """
+        if self.use_dtm:
+            x = self.dtm(input)
         else:
-            x_1 = self.topo_layer_21(self.flatten(input[:, [0], :, :]))
-            x_2 = self.topo_layer_22(self.flatten(input[:, [1], :, :]))
-            x_3 = self.topo_layer_23(self.flatten(input[:, [2], :, :]))
-            x = torch.concat((x_1, x_2, x_3), dim=-1)
+            x = input
+        x = self.topo_layer(x)
         # x = self.bn(x)  ################################## whether to use this or not
         output = self.fc(self.relu(x))
         return output
     
 
-class ScaledPllay_05(nn.Module):
-    def __init__(self, in_channels, num_classes, out_features, m0=0.05, **kwargs):
+class EC_Pllay(nn.Module):
+    def __init__(self, num_classes,
+                 T=50, num_channels=3, out_features=100, p=0,   # EC parameters
+                 use_dtm=False, **kwargs):  # DTM parameters
+        """
+        Args:
+            out_features: output dimension of fc layer
+            num_classes: number of classes for classification
+            use_dtm: whether to use DTM filtration
+            kwargs: parameters for dtm
+                    ex) m0=0.05, lims=[[1,28], [1,28]], size=[28, 28], r=2
+        """
         super().__init__()
-        assert in_channels in (1,3)
-        self.in_channels = in_channels
-        self.flatten = nn.Flatten()
+        self.use_dtm = use_dtm
+        if use_dtm:
+            self.dtm = DTMLayer(**kwargs, scale_dtm=True)
+        self.topo_layer = EC_TopoLayer(T, num_channels, out_features, p)
 
-        self.topo_layer_11 = ScaledTopoLayer(out_features, **kwargs)
-        if in_channels == 3:
-            self.topo_layer_12 = ScaledTopoLayer(out_features, **kwargs)
-            self.topo_layer_13 = ScaledTopoLayer(out_features, **kwargs)
-
-        # self.bn = nn.BatchNorm1d(in_channels*out_features)
+        # self.bn = nn.BatchNorm1d(out_features)
         self.relu = nn.ReLU()
-        self.fc = nn.Linear(in_channels*out_features, num_classes)
+        self.fc = nn.Linear(out_features, num_classes)
 
     def forward(self, input):
-        if self.in_channels == 1:
-            x = self.topo_layer_11(self.flatten(input))
+        """
+        Args:
+            input: Tensor of shape [batch_size, num_channels, H, W]
+
+        Returns:
+            output: Tensor of shape [batch_size, num_classes]
+        """
+        if self.use_dtm:
+            x = self.dtm(input)
         else:
-            x_1 = self.topo_layer_11(self.flatten(input[:, [0], :, :]))
-            x_2 = self.topo_layer_12(self.flatten(input[:, [1], :, :]))
-            x_3 = self.topo_layer_13(self.flatten(input[:, [2], :, :]))
-            x = torch.concat((x_1, x_2, x_3), dim=-1)
+            x = input
+        x = self.topo_layer(x)
         # x = self.bn(x)  ################################## whether to use this or not
         output = self.fc(self.relu(x))
         return output
