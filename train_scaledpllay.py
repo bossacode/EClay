@@ -2,8 +2,8 @@ import torch
 import os
 import wandb
 import argparse
-from models_base import ScaledPllay_05
-from train_test import train_test_pipeline
+from models_base import ScaledPllay
+from train_test import train_pipeline_wandb, _train_pipeline
 
 
 # for reproducibility (may degrade performance)
@@ -15,42 +15,45 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
-project = "ScaledPllay_05_" + args.data
+project = "ScaledPllay" + args.data
 
 # hyperparams, model params, metadata, etc.
 config = {
     "batch_size": 32,
-    "lr": 0.05,
+    "lr": 0.01,
     "weight_decay":0.0001,
-    "factor": 0.1,          # factor to decay lr by when loss stagnates
+    "factor": 0.3,          # factor to decay lr by when loss stagnates
     "threshold": 0.005,     # min value to be considered as improvement in loss
-    "es_patience": 15,      # earlystopping patience
-    "sch_patience": 5,     # lr scheduler patience
+    # "es_patience": 25,      # earlystopping patience
+    "sch_patience": 15,     # lr scheduler patience
     "epochs": 500,
     "val_size": 0.3,
-    "ntimes": 5,            # number of repetitions for simulation of each model
+    "ntimes": 1,            # number of repetitions for simulation of each model
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "model_params": dict(
-        in_channels=3,
-        num_classes=7,
-        out_features=50,
-        m0=0.05,
-        T=25,
-        lims=[[1,56], [1,56]],
-        size=[56, 56],
-        r=2,
+        num_classes=10,
+        use_dtm=False,
+        # DTM parameters
+        # m0=0.05,
+        # lims=[[1,28], [1,28]],
+        # size=[28, 28],
+        # r=2,
+        # PL parameters
+        T=50,
         K_max=2,
         dimensions=[0, 1],
-        device="cuda" if torch.cuda.is_available() else "cpu"
+        num_channels=3,
+        out_features=50,
+        p=0.3
         ),
     "data": args.data,
-    "model": "BasePllay 0.05"
+    "model": "ScaledPllay"
     }
 
-corrupt_prob_list = [0.0, 0.1, 0.2]
-noise_prob_list = [0.0, 0.1, 0.2]
-# corrupt_prob_list = [0.0]
-# noise_prob_list = [0.0]
+# corrupt_prob_list = [0.0, 0.1, 0.2]
+# noise_prob_list = [0.0, 0.1, 0.2]
+corrupt_prob_list = [0.0]
+noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
 file_cn_list, weight_dir_list = [], []
 for i_cn in range(len_cn):
@@ -78,10 +81,10 @@ if __name__ == "__main__":
             print(f"\nSimulation: [{n_sim} / {config['ntimes']}]")
             print("-"*30)
             
-            model = ScaledPllay_05(**config["model_params"]).to(config["device"])
-            
             group = file_cn_list[i_cn]                              # used for grouping experiments in wandb
             job_type = f"sim{n_sim}"                                # used for specifying runs in wandb
-            weight_path = weight_dir_list[i_cn] + f"sim{n_sim}.pt"  # file path to save trained weights
+            # weight_path = weight_dir_list[i_cn] + f"sim{n_sim}.pt"  # file path to save trained weights
+            weight_path = None
             seed = torch.randint(0,1000, size=(1,)).item()          # used for different train/val split in each simulataion
-            train_test_pipeline(model, config, project, group, job_type, x_path_list[i_cn], y_path, weight_path, seed)
+            train_pipeline_wandb(ScaledPllay, config, x_path_list[i_cn], y_path, seed, weight_path, project, group, job_type)
+            # _train_pipeline(ScaledPllay, config, x_path_list[i_cn], y_path, seed, weight_path)
