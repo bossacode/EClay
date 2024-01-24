@@ -149,16 +149,16 @@ def _train_pipeline(MODEL, config, x_path, y_path, seed, weight_path=None):
 
         scheduler.step(val_loss)
 
-        wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
-                    "val":{"loss":val_loss, "accuracy":val_acc}}, step=n_epoch)
-
         # early stopping
         stop, loss_improvement = es.stop_training(val_loss, val_acc, n_epoch)
+        wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
+                   "val":{"loss":val_loss, "accuracy":val_acc},
+                   "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
         if stop:
             if weight_path is not None:
                 torch.save(model_state_dict, weight_path)   # save model weights
             break
-        elif loss_improvement:
+        elif loss_improvement and weight_path is not None:
             model_state_dict = model.state_dict()
 
 
