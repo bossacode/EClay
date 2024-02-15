@@ -2,10 +2,11 @@ import torch
 from torch.distributions import Binomial
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
+import numpy as np
 import os
 
 
-N = 200
+N = 10  # number of samples for each label
 
 
 def corrupt_noise(X, corrupt_prob, noise_prob):
@@ -38,10 +39,18 @@ def generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, di
     y_train = train_data.targets
     y_test = test_data.targets
 
-    # sample N training data
-    ind = torch.randint(low=0, high=len(train_data.data), size=(N,))
-    x_train = x_train[ind]
-    y_train = y_train[ind]
+    # sample N training data for each label
+    idx_list = []
+    for label in y_train.unique():
+        sampled_idx = np.random.choice(torch.where(y_train == label)[0], N)
+        idx_list.append(sampled_idx)
+    idx = np.concatenate(idx_list)
+    x_train = x_train[idx]
+    y_train = y_train[idx]
+
+    # ind = torch.randint(low=0, high=len(train_data.data), size=(N,))
+    # x_train = x_train[ind]
+    # y_train = y_train[ind]
 
     # add channel dimension: (N,C,H,W)
     x_train.unsqueeze_(1)
@@ -59,8 +68,10 @@ def generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file, di
 
 
 if __name__ == "__main__":
-    corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
-    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+    corrupt_prob_list = [0.0]
+    noise_prob_list = [0.0]
+    # corrupt_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
     
     len_cn = len(corrupt_prob_list)
     file_cn_list = [None] * len_cn
@@ -71,4 +82,5 @@ if __name__ == "__main__":
     y_file = "y.pt"
 
     torch.manual_seed(123)
+    np.random.seed(123)
     generate_data(N, corrupt_prob_list, noise_prob_list, x_file_list, y_file)
