@@ -3,7 +3,7 @@ import wandb
 import argparse
 import os
 from functools import partial
-from models import ResNet18
+from models import ResNet18_16
 from train_test import train_pipeline_wandb
 
 
@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
-project = "hp_ResNest18_8/16/32/64_300" + args.data
+project = "hp_ResNest18_16_300" + args.data
 
 sweep_config = {
     "method": "random",
@@ -32,16 +32,18 @@ sweep_config = {
                 in_channels={"value": 1},
                 # block=ResidualBlock,
                 # cfg=[2,2,2,2],
-                num_classes={"value": 10}
+                num_classes={"value": 10},
+                res_in_channels={"value": 16},
+                p={"values": [0.1, 0.2, 0.3, 0.4, 0.5]}
             )
         },
         # "es_patience": {"value": 35},
-        "sch_patience": {"values": [5, 10, 15, 20]},
+        "sch_patience": {"values": [5, 10, 15]},
         "threshold": {"value": 0.005},
         "val_size": {"value": 0.3},
         "weight_decay": {"values": [0, 0.0001]},
     },
-    "description": f"Hyperparameter search of ScaledPllay on {args.data} using 1000 train data"
+    "description": f"Hyperparameter search of ScaledPllay on {args.data} using 300 train data"
 }
 
 
@@ -67,6 +69,6 @@ if __name__ == "__main__":
 
     # wandb.agent returns empty config if functions with arguments are given
     # https://github.com/wandb/wandb/issues/2724
-    train_pipeline = partial(train_pipeline_wandb, ResNet18, None, x_path_list[0], y_path, seed, project=project)
+    train_pipeline = partial(train_pipeline_wandb, ResNet18_16, None, x_path_list[0], y_path, seed, project=project)
     
     wandb.agent(sweep_id, train_pipeline, project=project, count=300)
