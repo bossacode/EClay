@@ -43,6 +43,35 @@ class CustomDataset(Dataset):
             return self.x_test[ind], self.y_test[ind]   # test data
 
 
+class EarlyStopping:
+    def __init__(self, patience, threshold):
+        """
+        patience:
+        threshold:
+        """
+        self.patience = patience
+        self.threshold = threshold
+        self.count = 0
+        self.best_loss, self.best_acc, self.best_epoch = float("inf"), None, None
+
+    def stop_training(self, loss, acc, epoch):
+        stop, loss_improvement = True, True
+        if (self.best_loss - loss) > self.threshold:   # loss improvement needs to be above threshold 
+            self.count = 0
+            self.best_loss, self.best_acc, self.best_epoch = loss, acc, epoch
+            return not stop, loss_improvement
+        else:
+            self.count += 1
+            if self.count > self.patience:  # stop training if loss doesn't improve for patience + 1 epochs
+                print("-"*30)
+                print(f"Best Epoch: {self.best_epoch}")
+                print(f"Best Validation Accuracy: {(self.best_acc):>0.1f}%")
+                print(f"Best Validation Loss: {self.best_loss:>8f}")
+                print("-"*30)
+                return stop, not loss_improvement
+            return not stop, not loss_improvement
+
+
 def train(model, dataloader, loss_fn, optimizer, device):
     """
     train for 1 epoch
@@ -94,66 +123,49 @@ def eval(model, dataloader, loss_fn, device):
     return loss, accuracy
 
 
-class EarlyStopping:
-    def __init__(self, patience, threshold):
-        """
-        patience:
-        threshold:
-        """
-        self.patience = patience
-        self.threshold = threshold
-        self.count = 0
-        self.best_loss, self.best_acc, self.best_epoch = float("inf"), None, None
+def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log=False):
+    """
+    Args:
+        MODEL:
+        config:
+        x_path: file path to data
+        y_path: file path to label
+        seed:
+        weight_path:
+        log: whether to log metrics to wandb
+    """
+    train_dataset = CustomDataset(x_path, y_path, mode="train", seed=seed, val_size=config["val_size"])
+    val_dataset = CustomDataset(x_path, y_path, mode="val", seed=seed, val_size=config["val_size"])
+    train_dataloader = DataLoader(train_dataset, config["batch_size"], shuffle=True)
+    val_dataloader = DataLoader(val_dataset, config["batch_size"])
 
-    def stop_training(self, loss, acc, epoch):
-        stop, loss_improvement = True, True
-        if (self.best_loss - loss) > self.threshold:   # loss improvement needs to be above threshold 
-            self.count = 0
-            self.best_loss, self.best_acc, self.best_epoch = loss, acc, epoch
-            return not stop, loss_improvement
-        else:
-            self.count += 1
-            if self.count > self.patience:  # stop training if loss doesn't improve for patience + 1 epochs
-                print("-"*30)
-                print(f"Best Epoch: {self.best_epoch}")
-                print(f"Best Validation Accuracy: {(self.best_acc):>0.1f}%")
-                print(f"Best Validation Loss: {self.best_loss:>8f}")
-                print("-"*30)
-                return stop, not loss_improvement
-            return not stop, not loss_improvement
-
-
-def _train_pipeline(MODEL, config, x_path, y_path, seed, weight_path=None):
-    train_dataset = CustomDataset(x_path, y_path, mode="train", seed=seed, val_size=config.val_size)
-    val_dataset = CustomDataset(x_path, y_path, mode="val", seed=seed, val_size=config.val_size)
-    train_dataloader = DataLoader(train_dataset, config.batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, config.batch_size)
-
-    model = MODEL(**config.model_params).to(config.device)
+    # set seed for initialization?
+    model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
-    optim = Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
-    scheduler = ReduceLROnPlateau(optim, factor=config.factor, patience=config.sch_patience, threshold=config.threshold, verbose=True)
+    optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
+    scheduler = ReduceLROnPlateau(optim, factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
     
     # set early stopping patience as 2.5 times that of scheduler patience
-    es = EarlyStopping(int(config.sch_patience * 2.5), config.threshold)
+    es = EarlyStopping(int(config["sch_patience"] * 2.5), config["threshold"])
 
-    wandb.watch(model, loss_fn, log="all", log_freq=5)     # log gradients and model parameters every 5 batches
+    if log: wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
 
     # train
-    for n_epoch in range(1, config.epochs+1):
-        print(f"\nEpoch: [{n_epoch} / {config.epochs}]")
+    for n_epoch in range(1, config["epochs"]+1):
+        print(f"\nEpoch: [{n_epoch} / {config['epochs']}]")
         print("-"*30)
 
-        train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, config.device)
-        val_loss, val_acc = eval(model, val_dataloader, loss_fn, config.device)
+        train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, config["device"])
+        val_loss, val_acc = eval(model, val_dataloader, loss_fn, config["device"])
 
         scheduler.step(val_loss)
 
         # early stopping
         stop, loss_improvement = es.stop_training(val_loss, val_acc, n_epoch)
-        wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
-                   "val":{"loss":val_loss, "accuracy":val_acc},
-                   "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
+        if log:
+            wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
+                    "val":{"loss":val_loss, "accuracy":val_acc},
+                    "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
         if stop:
             if weight_path is not None:
                 torch.save(model_state_dict, weight_path)   # save model weights
@@ -162,27 +174,57 @@ def _train_pipeline(MODEL, config, x_path, y_path, seed, weight_path=None):
             model_state_dict = model.state_dict()
 
 
-def _train_test_pipeline(MODEL, config, x_path, y_path, seed, weight_path):
-    _train_pipeline(MODEL, config, x_path, y_path, seed, weight_path)
+def train_test(MODEL, config, x_path, y_path, seed, weight_path, log=False):
+    """
+    Args:
+        MODEL:
+        config:
+        x_path: file path to data
+        y_path: file path to label
+        seed:
+        weight_path:
+        log: whether to log metrics to wandb
+    """
+    train_val(MODEL, config, x_path, y_path, seed, weight_path, log)
 
     test_dataset = CustomDataset(x_path, y_path, mode="test")
-    test_dataloader = DataLoader(test_dataset, config.batch_size)
+    test_dataloader = DataLoader(test_dataset, config["batch_size"])
     loss_fn = nn.CrossEntropyLoss()
     
     # test
-    model = MODEL(**config.model_params).to(config.device)
-    model.load_state_dict(torch.load(weight_path, map_location=config.device))
-    test_loss, test_acc = eval(model, test_dataloader, loss_fn, config.device)
-    wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
+    model = MODEL(**config["model_params"]).to(config["device"])
+    model.load_state_dict(torch.load(weight_path, map_location=config["device"]))
+    test_loss, test_acc = eval(model, test_dataloader, loss_fn, config["device"])
+    if log: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_pipeline_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, project=None, group=None, job_type=None):
+def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log=True, project=None, group=None, job_type=None):
+    """
+    Args:
+        MODEL:
+        config:
+        x_path: file path to data
+        y_path: file path to label
+        seed:
+        weight_path:
+        log: whether to log metrics to wandb
+    """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        _train_pipeline(MODEL, config, x_path, y_path, seed, weight_path)
+        train_val(MODEL, config, x_path, y_path, seed, weight_path, log)
 
 
-def train_test_pipeline_wandb(MODEL, config, x_path, y_path, seed, weight_path, project=None, group=None, job_type=None):
+def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log=True, project=None, group=None, job_type=None):
+    """
+    Args:
+        MODEL:
+        config:
+        x_path: file path to data
+        y_path: file path to label
+        seed:
+        weight_path:
+        log: whether to log metrics to wandb
+    """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        _train_test_pipeline(MODEL, config, x_path, y_path, seed, weight_path)
+        train_test(MODEL, config, x_path, y_path, seed, weight_path, log)
