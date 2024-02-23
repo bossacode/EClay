@@ -123,7 +123,7 @@ def eval(model, dataloader, loss_fn, device):
     return loss, accuracy
 
 
-def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log=False):
+def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=False, log_grad=False):
     """
     Args:
         MODEL:
@@ -148,7 +148,8 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log=False):
     # set early stopping patience as 2.5 times that of scheduler patience
     es = EarlyStopping(int(config["sch_patience"] * 2.5), config["threshold"])
 
-    if log: wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
+    if log_grad:
+        wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
 
     # train
     for n_epoch in range(1, config["epochs"]+1):
@@ -162,7 +163,7 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log=False):
 
         # early stopping
         stop, loss_improvement = es.stop_training(val_loss, val_acc, n_epoch)
-        if log:
+        if log_metric:
             wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
                     "val":{"loss":val_loss, "accuracy":val_acc},
                     "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
@@ -174,7 +175,7 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log=False):
             model_state_dict = model.state_dict()
 
 
-def train_test(MODEL, config, x_path, y_path, seed, weight_path, log=False):
+def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=False, log_grad=False):
     """
     Args:
         MODEL:
@@ -185,7 +186,7 @@ def train_test(MODEL, config, x_path, y_path, seed, weight_path, log=False):
         weight_path:
         log: whether to log metrics to wandb
     """
-    train_val(MODEL, config, x_path, y_path, seed, weight_path, log)
+    train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
 
     test_dataset = CustomDataset(x_path, y_path, mode="test")
     test_dataloader = DataLoader(test_dataset, config["batch_size"])
@@ -195,10 +196,10 @@ def train_test(MODEL, config, x_path, y_path, seed, weight_path, log=False):
     model = MODEL(**config["model_params"]).to(config["device"])
     model.load_state_dict(torch.load(weight_path, map_location=config["device"]))
     test_loss, test_acc = eval(model, test_dataloader, loss_fn, config["device"])
-    if log: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
+    if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log=True, project=None, group=None, job_type=None):
+def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None):
     """
     Args:
         MODEL:
@@ -211,10 +212,10 @@ def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log=T
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_val(MODEL, config, x_path, y_path, seed, weight_path, log)
+        train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
 
 
-def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log=True, project=None, group=None, job_type=None):
+def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None):
     """
     Args:
         MODEL:
@@ -227,4 +228,4 @@ def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log=True,
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_test(MODEL, config, x_path, y_path, seed, weight_path, log)
+        train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
