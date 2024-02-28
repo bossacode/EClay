@@ -4,32 +4,14 @@ import numpy as np
 import gudhi
 from torch_topological.nn import CubicalComplex
 
-
-# class EC_CustomGrad(torch.autograd.Function):
-#     @staticmethod
-#     def forward(ctx, input, tseq, grid_size):
-#         """
-#         Args:
-#             input: Tensor of shape [(C*H*W),]
-#             tseq:
-#             grid_size:
-#         Returns:
-#         """
-#         cub_cpx = gudhi.CubicalComplex(dimensions=grid_size, top_dimensional_cells=input)
-#         cub_cpx.compute_persistence(homology_coeff_field=2, min_persistence=0)
-#         ec = torch.zeros(len(tseq))
-#         for i,t in enumerate(tseq):
-#             betti_num = cub_cpx.persistent_betti_numbers(t,t)
-#             ec[i] = betti_num[0] - betti_num[1]
-#         return ec
-    
-#     @staticmethod
-#     def backward(ctx, up_grad):
-#         pass
-
     
 class EC_Layer(nn.Module):
     def __init__(self, T=50, num_channels=3):
+        """
+        Args:
+            T: 
+            num_channels: Number of channels in input
+        """
         super().__init__()
         self.cub_cpx = CubicalComplex(superlevel=False, dim=2)
         self.T = T
@@ -83,21 +65,19 @@ class EC_Layer(nn.Module):
     
 
 class EC_TopoLayer(nn.Module):
-    def __init__(self, T=50, num_channels=3, out_features=100, p=0):
+    def __init__(self, T=100, num_channels=3, hidden_features=[128, 64], p=0.5):
         """
         Args:
             T: 
-            K_max: 
-            dimensions: 
-            num_channels: number of channels in input
-            out_features: output dimension of fc layer
-            p: dropout probability
+            num_channels: Number of channels in input
+            hidden_features: List containing the dimension of fc layers
+            p: Dropout probability
         """
         super().__init__()
         self.ec_layer = EC_Layer(T, num_channels)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(p)
-        self.gtheta_layer = nn.Linear(num_channels * T, out_features)
+        self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features, p)
 
     def forward(self, input):
         """
@@ -108,6 +88,27 @@ class EC_TopoLayer(nn.Module):
             output: Tensor of shape [batch_size, out_features]
         """
         ec = self.ec_layer(input)
-        ec = self.dropout(self.flatten(ec)) # shape: [batch_size, (num_channels * T)]
+        
+        ec = self.flatten(ec)   # shape: [batch_size, (num_channels * T)]
+        ec = self.dropout(ec)   # should i use this dropout? seems better to use?
         output = self.gtheta_layer(ec)
         return output
+    
+    @staticmethod
+    def _make_gtheta_layer(in_features, hidden_features, p):
+        """
+        Args:
+            in_features:
+            hidden_features:
+            p: Dropout probability
+        """
+        features = [in_features] + hidden_features
+        num_layers = len(hidden_features)
+        layer_list = []
+        for i in range(num_layers):
+            layer_list.append(nn.Linear(features[i], features[i+1]))
+            # if i+1 != num_layers:
+            # layer_list.append(nn.BatchNorm1d(features[i+1])) # should i use BN?
+            layer_list.append(nn.ReLU())
+            layer_list.append(nn.Dropout(p))
+        return nn.Sequential(*layer_list)

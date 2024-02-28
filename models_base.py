@@ -74,9 +74,9 @@ class ScaledPllay(nn.Module):
         return output
     
 
-class EC_Pllay(nn.Module):
+class EClay(nn.Module):
     def __init__(self, num_classes,
-                 T=50, num_channels=3, out_features=100, p=0,   # EC parameters
+                 T=50, num_channels=3, hidden_features=[128, 64], p=0.5,   # EC parameters
                  use_dtm=False, **kwargs):  # DTM parameters
         """
         Args:
@@ -90,11 +90,8 @@ class EC_Pllay(nn.Module):
         self.use_dtm = use_dtm
         if use_dtm:
             self.dtm = DTMLayer(**kwargs, scale_dtm=True)
-        self.topo_layer = EC_TopoLayer(T, num_channels, out_features, p)
-
-        # self.bn = nn.BatchNorm1d(out_features)
-        self.relu = nn.ReLU()
-        self.fc = nn.Linear(out_features, num_classes)
+        self.topo_layer = EC_TopoLayer(T, num_channels, hidden_features, p)
+        self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
         """
@@ -109,6 +106,5 @@ class EC_Pllay(nn.Module):
         else:
             x = input
         x = self.topo_layer(x)
-        # x = self.bn(x)  ################################## whether to use this or not
-        output = self.fc(self.relu(x))
+        output = self.fc(x)
         return output
