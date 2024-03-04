@@ -68,8 +68,7 @@ class ScaledPllay(nn.Module):
         else:
             x = input
         x = self.topo_layer(x)
-        # x = self.bn(x)  ################################## whether to use this or not
-        output = self.fc(self.relu(x))
+        output = self.fc(x)
         return output
     
 
