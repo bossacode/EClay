@@ -217,7 +217,7 @@ class ScaledTopoLayer(nn.Module):
             p: Dropout probability
         """
         super().__init__()
-        self.landscape_layer = ScaledPLLayer(T, K_max, dimensions, num_channels)
+        self.landscape_layer = ScaledPLLayer(superlevel, T, K_max, dimensions, num_channels)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(p)
         self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features, p)
