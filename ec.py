@@ -6,16 +6,18 @@ from torch_topological.nn import CubicalComplex
 
     
 class EC_Layer(nn.Module):
-    def __init__(self, T=50, num_channels=3):
+    def __init__(self, superlevel=False, T=50, num_channels=1):
         """
         Args:
-            T: 
+            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
+            T: How many discretized points to use
             num_channels: Number of channels in input
         """
         super().__init__()
-        self.cub_cpx = CubicalComplex(superlevel=False, dim=2)
+        self.cub_cpx = CubicalComplex(superlevel=superlevel, dim=2)
         self.T = T
-        self.tseq = torch.linspace(0, 1, T).view(1, -1) # shape: [1, T]
+        start, end = (-1, 0) if superlevel else (0, 1)
+        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
         self.num_channels = num_channels
 
     def forward(self, input):
@@ -31,7 +33,7 @@ class EC_Layer(nn.Module):
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
         
         ec = torch.zeros(batch_size, self.num_channels, self.T)
-        pi_list = self.cub_cpx(input)
+        pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.num_channels):
                 pd_0 = pi_list[b][c][0].diagram
@@ -65,16 +67,17 @@ class EC_Layer(nn.Module):
     
 
 class EC_TopoLayer(nn.Module):
-    def __init__(self, T=100, num_channels=3, hidden_features=[128, 64], p=0.5):
+    def __init__(self, superlevel=False, T=50, num_channels=1, hidden_features=[128, 64], p=0.5):
         """
         Args:
+            superlevel: 
             T: 
             num_channels: Number of channels in input
             hidden_features: List containing the dimension of fc layers
             p: Dropout probability
         """
         super().__init__()
-        self.ec_layer = EC_Layer(T, num_channels)
+        self.ec_layer = EC_Layer(superlevel, T, num_channels)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(p)
         self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features, p)
@@ -88,7 +91,6 @@ class EC_TopoLayer(nn.Module):
             output: Tensor of shape [batch_size, out_features]
         """
         ec = self.ec_layer(input)
-        
         ec = self.flatten(ec)   # shape: [batch_size, (num_channels * T)]
         ec = self.dropout(ec)   # should i use this dropout? seems better to use?
         output = self.gtheta_layer(ec)

@@ -143,21 +143,24 @@ from dtm import DTMLayer
 
 
 class ScaledPLLayer(nn.Module):
-    def __init__(self, T=50, K_max=2, dimensions=[0,1], num_channels=3):
+    def __init__(self, superlevel=False, T=50, K_max=2, dimensions=[0,1], num_channels=1):
         """
         Args:
+            superlevel:
             T: 
             K_max: 
             dimensions: 
+            num_channels: Number of channels in input
         """
         super().__init__()
+        self.cub_cpx = CubicalComplex(superlevel=superlevel, dim=2)
         self.T = T
-        self.tseq = torch.linspace(0, 1, T).view(1, -1) # shape: [1, T]
+        start, end = (-1, 0) if superlevel else (0, 1)
+        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
         self.K_max = K_max
         self.dimensions = dimensions
         self.len_dim = len(dimensions)
         self.num_channels = num_channels
-        self.cub_cpx = CubicalComplex(superlevel=False, dim=2)
 
     def forward(self, input):
         """
@@ -202,21 +205,22 @@ class ScaledPLLayer(nn.Module):
 
 
 class ScaledTopoLayer(nn.Module):
-    def __init__(self, T=50, K_max=2, dimensions=[0, 1], num_channels=3, out_features=100, p=0):
+    def __init__(self, superlevel=False, T=50, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[128, 64], p=0.5):
         """
         Args:
+            superlevel: 
             T: 
             K_max: 
             dimensions: 
-            num_channels: number of channels in input
-            out_features: output dimension of fc layer
-            p: dropout probability
+            num_channels: Number of channels in input
+            hidden_features: List containing the dimension of fc layers
+            p: Dropout probability
         """
         super().__init__()
         self.landscape_layer = ScaledPLLayer(T, K_max, dimensions, num_channels)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(p)
-        self.gtheta_layer = nn.Linear(num_channels * len(dimensions) * K_max * T, out_features)
+        self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features, p)
 
     def forward(self, input):
         """
@@ -227,6 +231,26 @@ class ScaledTopoLayer(nn.Module):
             output: Tensor of shape [batch_size, out_features]
         """
         land = self.landscape_layer(input)
-        land = self.dropout(self.flatten(land)) # shape: [batch_size, (num_channels * len_dim * K_max * T)]
+        land = self.flatten(land)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
+        land = self.dropout(land)   # should i use this dropout? seems better to use?
         output = self.gtheta_layer(land)
         return output
+    
+    @staticmethod
+    def _make_gtheta_layer(in_features, hidden_features, p):
+        """
+        Args:
+            in_features:
+            hidden_features:
+            p: Dropout probability
+        """
+        features = [in_features] + hidden_features
+        num_layers = len(hidden_features)
+        layer_list = []
+        for i in range(num_layers):
+            layer_list.append(nn.Linear(features[i], features[i+1]))
+            # if i+1 != num_layers:
+            # layer_list.append(nn.BatchNorm1d(features[i+1])) # should i use BN?
+            layer_list.append(nn.ReLU())
+            layer_list.append(nn.Dropout(p))
+        return nn.Sequential(*layer_list)
