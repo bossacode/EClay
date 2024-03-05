@@ -67,14 +67,6 @@ class ResNet(nn.Module):
         assert len(block_cfg) == len(filter_cfg)
         self.layer_input_channels = filter_cfg[0]   # channel of input that goes into res_layer1, value changes in _make_layers
 
-
-        # original ResNet
-        # self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, self.res_in_channels, kernel_size=7, stride=2, padding=3),
-        #                                 nn.BatchNorm2d(self.res_in_channels),
-        #                                 nn.ReLU())
-        # self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-
-        # modified ResNet
         self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, filter_cfg[0], kernel_size=3, stride=1, padding=1),
                                         nn.BatchNorm2d(self.layer_input_channels),
                                         nn.ReLU())
@@ -85,7 +77,6 @@ class ResNet(nn.Module):
         # self.res_layer_3 = self._make_layers(block, 4*res_in_channels, cfg[2], stride=2)
         # self.res_layer_4 = self._make_layers(block, 8*res_in_channels, cfg[3], stride=2)
 
-        # self.res_layers = nn.Sequential(*[self._make_layers(block, res_in_channels * (2**i), num_blocks, stride=(1 if i==0 else 2)) for i, num_blocks in enumerate(block_cfg)])
         self.res_layers = nn.Sequential(*[self._make_layers(block, num_filters, num_blocks, stride=(1 if i==0 else 2)) for i, (num_blocks, num_filters) in enumerate(zip(block_cfg, filter_cfg))])
 
         self.avg_pool = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
@@ -134,19 +125,18 @@ class ResNet(nn.Module):
 
 
 class EClayResNet(ResNet):
-    def __init__(self, in_channels, block=ResidualBlock, cfg=[2,2,2,2], num_classes=10, res_in_channels=8, p_res=0,    # resnet params
-                 T=200, num_channels=1, out_features=64, p_topo=0., # EC_Topolayer params
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2], filter_cfg=[16,32,64], num_classes=10, p_res=0.5,   # resnet params
+                 load_res=True, res_path="./MNIST/saved_weights/ResNet_MNIST/00_00/sim1.pt", freeze_res=True,                   # loading pretrained resnet
+                 T=200, num_channels=1, hidden_features=[128, 64], p_topo=0.5,                                                  # EC_Topolayer params
+                 load_ec=True, ec_path="./MNIST/saved_weights/EClay_MNIST/00_00/sim1.pt", freeze_ec=True,                       # loading pretrained eclay
                  use_dtm=True, **kwargs): # dtm params
-        super().__init__(in_channels, block, cfg, num_classes, res_in_channels, p_res)
+        super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes, p_res)
         self.use_dtm = use_dtm
         if use_dtm:
             self.dtm = DTMLayer(**kwargs, scale_dtm=True)
-        self.topo_layer = EC_TopoLayer(T, num_channels, out_features, p_topo)
-        self.relu = nn.ReLU()
-
-        self.linear = nn.Linear(2*out_features, num_classes)
-        
-        # self.bn = nn.BatchNorm1d(2*in_channels*out_features)
+        superlevel = False if use_dtm else True
+        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features, p_topo)
+        self.fc = nn.Linear(filter_cfg[-1] + hidden_features[-1], num_classes)
 
         # self.num_topo_layers = 0    # counts number of topo layers(3 if only m0=0.05 is used, 6 if m0=0.2 is also used)
         # for m in self.modules():
@@ -155,51 +145,62 @@ class EClayResNet(ResNet):
         #     elif isinstance(m, nn.BatchNorm2d): # initialize BN of topo_layers
         #         nn.init.constant_(m.weight, 1)
         #         nn.init.constant_(m.bias, 0)
-        self.load_pretrained_pllay()
+        if load_res:
+            self._load_pretrained_resnet(res_path, freeze=freeze_res)
+        if load_ec:
+            self._load_pretrained_eclay(ec_path, freeze=freeze_ec)
     
     def forward(self, input):
         # ResNet
         x = self.conv_layer(input)
         # x = self.max_pool(x)
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
+        x = self.res_layers(x)
         x = self.avg_pool(x)
-        # x = self.dropout(x)
+        x = self.dropout(x)
 
         # EClay
         if self.use_dtm:
             x_1 = self.dtm(input)
         else:
             x_1 = input
-        x_1 = self.relu(self.topo_layer(x_1))
-        # x = self.bn(x)  ################################## whether to use this or not
+        x_1 = self.topo_layer(x_1)
 
         out = torch.concat((x, x_1), dim=-1)
-        output = self.linear(self.dropout(out))
+        output = self.fc(out)
         return output
 
-    def load_pretrained_pllay(self, pllay_pretrained_file_1="./MNIST/saved_weights/EClay64_MNIST_500/00_00/sim1.pt",
-                              pllay_pretrained_file_2=None, freeze=True):
+    def _load_pretrained_eclay(self, weight_path_1,
+                              weigth_path_2=None, freeze=False):
         model_dict = self.state_dict()
         
-        pllay_pretrained_1 = torch.load(pllay_pretrained_file_1)
-        pllay_params_1 = {layer:params for layer, params in pllay_pretrained_1.items() if layer in model_dict and "fc" not in layer}
-        print(pllay_params_1)
-        model_dict.update(pllay_params_1)
+        eclay_pretrained_1 = torch.load(weight_path_1)
+        eclay_params_1 = {layer:params for layer, params in eclay_pretrained_1.items() if layer in model_dict and "fc" not in layer}
+        model_dict.update(eclay_params_1)
 
-        if not (pllay_pretrained_file_2 is None):
-            pllay_pretrained_2 = torch.load(pllay_pretrained_file_2)
-            pllay_params_2 = {layer:params for layer, params in pllay_pretrained_2.items() if layer in model_dict and "fc" not in layer}
-            model_dict.update(pllay_params_2)
+        # if not (weigth_path_2 is None):
+        #     pllay_pretrained_2 = torch.load(weigth_path_2)
+        #     pllay_params_2 = {layer:params for layer, params in pllay_pretrained_2.items() if layer in model_dict and "fc" not in layer}
+        #     model_dict.update(pllay_params_2)
         
         self.load_state_dict(model_dict)
 
-        # only pllay network is pretrained and freezed
         if freeze:
             for m in self.modules():
-                if isinstance(m, AdTopoLayer):
+                if isinstance(m, EC_TopoLayer):
+                    m.requires_grad_(False)
+
+    def _load_pretrained_resnet(self, weight_path, freeze=False):
+        model_dict = self.state_dict()
+
+        resnet_pretrained = torch.load(weight_path)
+        resnet_params = {layer:params for layer, params in resnet_pretrained.items() if layer in model_dict and "fc" not in layer}
+        model_dict.update(resnet_params)
+
+        self.load_state_dict(model_dict)
+
+        if freeze:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d) or isinstance(m, nn.BatchNorm2d):
                     m.requires_grad_(False)
 
 
