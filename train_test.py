@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from collections import defaultdict
 import matplotlib.pyplot as plt
+from models import EClayResNet
 import os
 import wandb
 
@@ -142,7 +143,16 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
     # set seed for initialization?
     model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
-    optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
+    if isinstance(model, EClayResNet):
+        optim = Adam([
+            {"params": model.conv_layer.parameters()},
+            {"params": model.res_layers.parameters()},
+            {"params": model.topo_layer.parameters(), "lr": config["lr_ec"]},
+            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
+        ],
+        lr=config["lr_res"], weight_decay=0)
+    else:
+        optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
     scheduler = ReduceLROnPlateau(optim, factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
     
     # set early stopping patience as 2.5 times that of scheduler patience
