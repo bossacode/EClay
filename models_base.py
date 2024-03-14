@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from dtm import DTMLayer
 from pllay import PL_TopoLayer
-from ec import EC_TopoLayer
+from eclay import EC_TopoLayer
 
 
 class Pllay(nn.Module):
