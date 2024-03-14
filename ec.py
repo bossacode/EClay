@@ -14,9 +14,9 @@ class EC_Layer(nn.Module):
             num_channels: Number of channels in input
         """
         super().__init__()
-        self.cub_cpx = CubicalComplex(superlevel=superlevel, dim=2)
+        self.cub_cpx = CubicalComplex(superlevel, dim=2)
         self.T = T
-        start, end = (-1, 0) if superlevel else (0, 1)
+        start, end = (-1, 0) if superlevel else (0, 7)  ################################################ range
         self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
         self.num_channels = num_channels
 
@@ -36,10 +36,10 @@ class EC_Layer(nn.Module):
         pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.num_channels):
-                pd_0 = pi_list[b][c][0].diagram
+                pd_0 = pi_list[b][c][0].diagram[:-1]    ##################### test w. & w.o. remove last row (min, inf.)
                 pd_1 = pi_list[b][c][1].diagram
-                betti_0 = torch.logical_and(pd_0[:, 0].view(-1, 1) < self.tseq, pd_0[:, 1].view(-1, 1) >= self.tseq).sum(dim=0)
-                betti_1 = torch.logical_and(pd_1[:, 0].view(-1, 1) < self.tseq, pd_1[:, 1].view(-1, 1) >= self.tseq).sum(dim=0)
+                betti_0 = torch.logical_and(pd_0[:, [0]] < self.tseq, pd_0[:, [1]] >= self.tseq).sum(dim=0)
+                betti_1 = torch.logical_and(pd_1[:, [0]] < self.tseq, pd_1[:, [1]] >= self.tseq).sum(dim=0)
                 ec[b, c, :] = betti_0 - betti_1
         return ec if input_device == "cpu" else ec.to(input_device)
     
@@ -67,20 +67,18 @@ class EC_Layer(nn.Module):
     
 
 class EC_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, T=50, num_channels=1, hidden_features=[128, 64], p=0.5):
+    def __init__(self, superlevel=False, T=50, num_channels=1, hidden_features=[128, 64]):
         """
         Args:
             superlevel: 
             T: 
             num_channels: Number of channels in input
             hidden_features: List containing the dimension of fc layers
-            p: Dropout probability
         """
         super().__init__()
         self.ec_layer = EC_Layer(superlevel, T, num_channels)
         self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(p)
-        self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features, p)
+        self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features)
 
     def forward(self, input):
         """
@@ -92,17 +90,15 @@ class EC_TopoLayer(nn.Module):
         """
         ec = self.ec_layer(input)
         ec = self.flatten(ec)   # shape: [batch_size, (num_channels * T)]
-        ec = self.dropout(ec)   # should i use this dropout? seems better to use?
         output = self.gtheta_layer(ec)
         return output
     
     @staticmethod
-    def _make_gtheta_layer(in_features, hidden_features, p):
+    def _make_gtheta_layer(in_features, hidden_features):
         """
         Args:
             in_features:
             hidden_features:
-            p: Dropout probability
         """
         features = [in_features] + hidden_features
         num_layers = len(hidden_features)
@@ -110,7 +106,6 @@ class EC_TopoLayer(nn.Module):
         for i in range(num_layers):
             layer_list.append(nn.Linear(features[i], features[i+1]))
             # if i+1 != num_layers:
-            # layer_list.append(nn.BatchNorm1d(features[i+1])) # should i use BN?
+            # layer_list.append(nn.BatchNorm1d(features[i+1])) # should i use BN? it might distort the features
             layer_list.append(nn.ReLU())
-            layer_list.append(nn.Dropout(p))
         return nn.Sequential(*layer_list)

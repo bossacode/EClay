@@ -92,7 +92,7 @@ def dtm_using_knn(knn_dist, knn_index, input, bound, r=2):
 
 
 class DTMLayer(nn.Module):
-    def __init__(self, m0=0.05, lims=[[1,28], [1,28]], size=[28, 28], r=2, scale_dtm=True):
+    def __init__(self, m0=0.05, lims=[[1,28], [1,28]], size=[28, 28], r=2):
         """
         Args:
             m0: 
@@ -106,7 +106,6 @@ class DTMLayer(nn.Module):
         self.dist = cal_dist(grid)
         self.m0 = m0
         self.r = r
-        self.scale_dtm = scale_dtm
         self.flatten = nn.Flatten(start_dim=-2)
         
     def forward(self, input):
@@ -131,6 +130,6 @@ class DTMLayer(nn.Module):
         self.dist = self.dist.to(weight.device)
         knn_dist, knn_index = self.dist.topk(max_k, largest=False, dim=-1)  # shape: [(H*W), max_k]
         dtm_val = dtm_using_knn(knn_dist, knn_index, weight, bound, self.r) # shape: [batch_size, C, (H*W)]
-        if self.scale_dtm:
-            dtm_val = dtm_val * (weight.max(dim=-1, keepdim=True).values / dtm_val.max(dim=-1, keepdim=True).values)  # Think about multiplying weight.max
+        # if self.scale_dtm:
+        #     dtm_val = dtm_val * (weight.max(dim=-1, keepdim=True).values / dtm_val.max(dim=-1, keepdim=True).values)  # Think about multiplying weight.max
         return dtm_val.view(*input.shape)

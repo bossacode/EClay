@@ -74,7 +74,7 @@ class ScaledPllay(nn.Module):
 
 class EClay(nn.Module):
     def __init__(self, num_classes,
-                 T=50, num_channels=1, hidden_features=[128, 64], p=0.5,   # EC parameters
+                 T=50, num_channels=1, hidden_features=[128, 64],   # EC parameters
                  use_dtm=False, **kwargs):  # DTM parameters
         """
         Args:
@@ -87,10 +87,10 @@ class EClay(nn.Module):
         super().__init__()
         self.use_dtm = use_dtm
         if use_dtm:
-            self.dtm = DTMLayer(**kwargs, scale_dtm=True)
+            self.dtm = DTMLayer(**kwargs)
 
         superlevel = False if use_dtm else True
-        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features, p)
+        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features)
         self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
