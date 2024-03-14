@@ -36,7 +36,8 @@ class EC_Layer(nn.Module):
         pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.num_channels):
-                pd_0 = pi_list[b][c][0].diagram[:-1]    ##################### test w. & w.o. remove last row (min, inf.)
+                # pd_0 = pi_list[b][c][0].diagram[:-1]    ##################### test w. & w.o. remove last row (min, inf.)
+                pd_0 = pi_list[b][c][0].diagram
                 pd_1 = pi_list[b][c][1].diagram
                 betti_0 = torch.logical_and(pd_0[:, [0]] < self.tseq, pd_0[:, [1]] >= self.tseq).sum(dim=0)
                 betti_1 = torch.logical_and(pd_1[:, [0]] < self.tseq, pd_1[:, [1]] >= self.tseq).sum(dim=0)

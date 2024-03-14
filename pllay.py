@@ -178,7 +178,8 @@ class PL_Layer(nn.Module):
             for c in range(self.num_channels):
                 for d, dim in enumerate(self.dimensions):
                     pi = pi_list[b][c][dim]     # error if "dim" is out of range
-                    pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
+                    # pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
+                    pd = pi.diagram
                     pl = self._pd_to_pl(pd)
                     landscape[b, c, d, :, :] = pl
         return landscape if input_device == "cpu" else landscape.to(input_device)
