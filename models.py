@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from pllay_adap import AdTopoLayer
 from dtm import DTMLayer
-from ec import EC_TopoLayer
+from eclay import EC_TopoLayer
 
 
 class ResidualBlock(nn.Module):
