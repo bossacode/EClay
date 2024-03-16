@@ -52,7 +52,7 @@ class BottleneckBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2,2], filter_cfg=[16,32,64,128], num_classes=10, p=0.1):
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2,2], filter_cfg=[16,32,64,128], num_classes=10):
         """
         Args:
             in_channels: Number of channels of input data
@@ -60,7 +60,6 @@ class ResNet(nn.Module):
             block_cfg: List containing number of blocks for each layer
             channel_cfg: List containing number of filters at the start of each layer
             num_classes:
-            p: Dropout percentage of fc layer
         """
         super().__init__()
         assert len(block_cfg) == len(filter_cfg)
@@ -79,7 +78,6 @@ class ResNet(nn.Module):
         self.res_layers = nn.Sequential(*[self._make_layers(block, num_filters, num_blocks, stride=(1 if i==0 else 2)) for i, (num_blocks, num_filters) in enumerate(zip(block_cfg, filter_cfg))])
 
         self.avg_pool = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
-        self.dropout = nn.Dropout(p=p)
         self.fc = nn.Linear(filter_cfg[-1], num_classes)
 
         # weight initialization
@@ -118,23 +116,22 @@ class ResNet(nn.Module):
         # x = self.max_pool(x)
         x = self.res_layers(x)
         x = self.avg_pool(x)
-        x = self.dropout(x)
         output = self.fc(x)
         return output
 
 
 class EClayResNet(ResNet):
-    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2], filter_cfg=[16,32,64], num_classes=10, p_res=0.5,   # resnet params
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2], filter_cfg=[16,32,64], num_classes=10,   # resnet params
                  load_res=True, res_path="./MNIST/saved_weights/ResNet_MNIST/00_00/sim1.pt", freeze_res=True,                   # loading pretrained resnet
-                 T=200, num_channels=1, hidden_features=[128, 64], p_topo=0.5,                                                  # EC_Topolayer params
+                 T=200, num_channels=1, hidden_features=[128, 64],                                                  # EC_Topolayer params
                  load_ec=True, ec_path="./MNIST/saved_weights/EClay_MNIST/00_00/sim1.pt", freeze_ec=True,                       # loading pretrained eclay
                  use_dtm=True, **kwargs): # dtm params
-        super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes, p_res)
+        super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
         self.use_dtm = use_dtm
         if use_dtm:
             self.dtm = DTMLayer(**kwargs, scale_dtm=True)
         superlevel = False if use_dtm else True
-        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features, p_topo)
+        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features)
         self.fc = nn.Linear(filter_cfg[-1] + hidden_features[-1], num_classes)
 
         # self.num_topo_layers = 0    # counts number of topo layers(3 if only m0=0.05 is used, 6 if m0=0.2 is also used)
@@ -155,7 +152,6 @@ class EClayResNet(ResNet):
         # x = self.max_pool(x)
         x = self.res_layers(x)
         x = self.avg_pool(x)
-        x = self.dropout(x)
 
         # EClay
         if self.use_dtm:
@@ -226,3 +222,22 @@ class EClayResNet(ResNet):
 # class AdPRNet18(AdPllayResNet):
 #     def __init__(self, in_channels, block=ResidualBlock, cfg=[2,2,2,2], out_features=50, num_classes=7):
 #         super().__init__(in_channels, block, cfg, out_features, num_classes)
+
+
+class CNN_2(nn.Module):
+    def __init__(self, in_channels=1, num_classes=10):
+        super().__init__()
+        self.conv_1 = nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1)
+        self.fc_1 = nn.Linear(in_features=784, out_features=64)
+        self.fc_2 = nn.Linear(in_features=64, out_features=num_classes)
+        self.relu = nn.ReLU()
+        self.flatten = nn.Flatten()
+
+    def forward(self, x):
+        x = self.relu(self.conv_1(x))
+        x = self.relu(self.conv_2(x))
+        x = self.flatten(x)
+        x = self.relu(self.fc_1(x))
+        x = self.fc_2(x)
+        return x
