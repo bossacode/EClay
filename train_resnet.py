@@ -2,8 +2,8 @@ import torch
 import os
 import wandb
 import argparse
-from models import ResidualBlock, ResNet18
-from train_test import train_test_pipeline
+from models import ResidualBlock, ResNet
+from train_test import train_test, train_test_wandb
 
 
 # for reproducibility (may degrade performance)
@@ -11,44 +11,42 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 torch.manual_seed(123)
 
-project = "ResNet18"
-
 parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
+project = "ResNet_" + args.data
+
 # hyperparams, model params, metadata, etc.
 config = {
-    "batch_size": 32,
-    "lr": 0.005,
-    "weight_decay":0.0001,
-    "factor": 0.1,          # factor to decay lr by when loss stagnates
-    "threshold": 0.005,     # min value to be considered as improvement in loss
-    "es_patience": 25,      # earlystopping patience
-    "sch_patience": 10,     # lr scheduler patience
-    "epochs": 500,
-    "val_size": 0.3,
-    "ntimes": 5,            # number of repetitions for simulation of each model
+    "batch_size": 16,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
+    "epochs": 200,
+    "factor": 0.2,          # factor to decay lr by when loss stagnates
+    "lr": 0.0040357352454123635,
     "model_params": dict(
-        in_channels=3,
-        block=ResidualBlock,
-        cfg=[2,2,2],
-        num_classes=7
+        in_channels=1,
+        # block=ResidualBlock,
+        block_cfg=[2,2],
+        filter_cfg=[64,128],
+        num_classes=10
         ),
-    "data": args.data,
-    "model": "ResNest18 3layer"
+    "ntimes": 1,            # number of repetitions for simulation of each model
+    # "es_patience": 25,      # earlystopping patience
+    "sch_patience": 15,     # lr scheduler patience
+    "threshold": 0.001,     # min value to be considered as improvement in loss
+    "val_size": 0.8
     }
 
-corrupt_prob_list = [0.0, 0.1, 0.2]
-noise_prob_list = [0.0, 0.1, 0.2]
-# corrupt_prob_list = [0.0]
-# noise_prob_list = [0.0]
+# corrupt_prob_list = [0.0, 0.1, 0.2]
+# noise_prob_list = [0.0, 0.1, 0.2]
+corrupt_prob_list = [0.0]
+noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
 file_cn_list, weight_dir_list = [], []
 for i_cn in range(len_cn):
     file_cn_list.append(str(int(corrupt_prob_list[i_cn] * 100)).zfill(2) + "_" + str(int(noise_prob_list[i_cn] * 100)).zfill(2))
-    weight_dir = f"{args.data}/saved_weights/{project}/{file_cn_list[i_cn]}"  # directory path to store trained model weights
+    weight_dir = f"{args.data}/saved_weights/{project}/{file_cn_list[i_cn]}/"  # directory path to store trained model weights
     if not os.path.exists(weight_dir):
         os.makedirs(weight_dir)
     weight_dir_list.append(weight_dir)
@@ -71,10 +69,9 @@ if __name__ == "__main__":
             print(f"\nSimulation: [{n_sim} / {config['ntimes']}]")
             print("-"*30)
             
-            model = ResNet18(**config["model_params"]).to(config["device"])
-            
             group = file_cn_list[i_cn]                              # used for grouping experiments in wandb
             job_type = f"sim{n_sim}"                                # used for specifying runs in wandb
             weight_path = weight_dir_list[i_cn] + f"sim{n_sim}.pt"  # file path to save trained weights
             seed = torch.randint(0,1000, size=(1,)).item()          # used for different train/val split in each simulataion
-            train_test_pipeline(model, config, project, group, job_type, x_path_list[i_cn], y_path, weight_path, seed)
+            # train_test_wandb(ResNet18_8, config, x_path_list[i_cn], y_path, seed, weight_path, True, False, project, group, job_type)
+            train_test(ResNet, config, x_path_list[i_cn], y_path, seed, weight_path)
