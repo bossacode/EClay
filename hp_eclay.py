@@ -29,7 +29,7 @@ sweep_config = {
         "device": {"value": "cuda" if torch.cuda.is_available() else "cpu"},
         "epochs": {"value": 200},
         "factor":{"values": [0.1, 0.2, 0.3, 0.4, 0.5]},
-        "lr": {"distribution": "inv_log_uniform_values", "min": 0.001, "max": 0.1},
+        "lr": {"distribution": "inv_log_uniform_values", "min": 0.001, "max": 0.05},
         "model_params": {
             "parameters": {
                 "num_classes": {"value": 10},
