@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
-project = "Pllay_" + args.data
+project = "PllayDTM_" + args.data
 
 # hyperparams, model params, metadata, etc.
 config = {
