@@ -13,10 +13,10 @@ torch.backends.cudnn.deterministic = True
 torch.manual_seed(123)
 
 parser = argparse.ArgumentParser()
-# parser.add_argument("data", help="directory of the dataset")
-parser.add_argument("-d", "--data", help="directory of the dataset")
-parser.add_argument("-t", "--T", nargs="+", type=int, help="")
-parser.add_argument("-hid", "--hidden", nargs="+", type=int, help="hidden feature dimensions of PLLay")
+parser.add_argument("data", help="directory of the dataset")
+# parser.add_argument("-d", "--data", help="directory of the dataset")
+# parser.add_argument("-t", "--T", nargs="+", type=int, help="")
+# parser.add_argument("-hid", "--hidden", nargs="+", type=int, help="hidden feature dimensions of PLLay")
 args = parser.parse_args()
 
 project = "hp_CNN2_" + args.data
