@@ -22,8 +22,8 @@ config = {
     "batch_size": 16,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "epochs": 200,
-    "factor": 0.4,  # factor to decay lr by when loss stagnates
-    "lr": 0.0017493298001505897,
+    "factor": 0.3,  # factor to decay lr by when loss stagnates
+    "lr": 0.001,
     "model_params": dict(
         num_classes=10,
         use_dtm=True,
@@ -33,9 +33,11 @@ config = {
         size=[28, 28],
         r=2,
         # EC parameters
-        T=50,
+        start=0,
+        end=7,
+        T=32,
         num_channels=1,
-        hidden_features=[64],
+        hidden_features=[64, 32],
         ),
     "ntimes": 1,            # number of repetitions for simulation of each model
     # "es_patience": 25,      # earlystopping patience

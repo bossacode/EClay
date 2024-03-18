@@ -2,8 +2,8 @@ import torch
 import os
 import wandb
 import argparse
-from models_base import Pllay
-from train_test import train_test_wandb, train_test
+from models_base import EClay2
+from train_test import train_val_wandb, train_test_wandb, train_val, train_test
 
 
 # for reproducibility (may degrade performance)
@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
-project = "PllayDTM_" + args.data
+project = "EClayDTM_" + args.data
 
 # hyperparams, model params, metadata, etc.
 config = {
@@ -28,18 +28,20 @@ config = {
         num_classes=10,
         use_dtm=True,
         # DTM parameters
-        m0=0.05,
+        m0_1=0.05,
+        m0_2=0.2,
         lims=[[1,28], [1,28]],
         size=[28, 28],
         r=2,
-        # PL parameters
+        # EC parameters
         start=0,
         end=7,
         T=32,
-        K_max=2,
-        dimensions=[0, 1],
         num_channels=1,
-        hidden_features=[32]
+        hidden_features=[64, 32],
+        # EC parameters 2
+        start_2=1,
+        end_2=8
         ),
     "ntimes": 1,            # number of repetitions for simulation of each model
     # "es_patience": 25,      # earlystopping patience
@@ -84,5 +86,5 @@ if __name__ == "__main__":
             weight_path = weight_dir_list[i_cn] + f"sim{n_sim}.pt"  # file path to save trained weights
             # weight_path = None
             seed = torch.randint(0,1000, size=(1,)).item()          # used for different train/val split in each simulataion
-            # train_test_wandb(Pllay, config, x_path_list[i_cn], y_path, seed, weight_path, True, False, project, group, job_type)
-            train_test(Pllay, config, x_path_list[i_cn], y_path, seed, weight_path)
+            # train_test_wandb(EClay, config, x_path_list[i_cn], y_path, seed, weight_path, True, False, project, group, job_type)
+            train_test(EClay2, config, x_path_list[i_cn], y_path, seed, weight_path)
