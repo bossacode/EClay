@@ -69,7 +69,7 @@ class EC_Layer(nn.Module):
     
 
 class EC_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, num_channels=1, hidden_features=[128, 64]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, num_channels=1, hidden_features=[64, 32]):
         """
         Args:
             superlevel: 

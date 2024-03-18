@@ -205,7 +205,7 @@ class PL_Layer(nn.Module):
 
 
 class PL_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[128, 64]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32]):
         """
         Args:
             superlevel: 
