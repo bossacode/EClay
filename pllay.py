@@ -141,19 +141,20 @@ from dtm import DTMLayer
 
 
 class PL_Layer(nn.Module):
-    def __init__(self, superlevel=False, T=50, K_max=2, dimensions=[0,1], num_channels=1):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], num_channels=1):
         """
         Args:
-            superlevel:
-            T: 
+            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
+            start: Min value of domain
+            end: Max value of domain
+            T: How many discretized points to use
             K_max: 
             dimensions: 
             num_channels: Number of channels in input
         """
         super().__init__()
-        self.cub_cpx = CubicalComplex(superlevel=superlevel, dim=2)
+        self.cub_cpx = CubicalComplex(superlevel, dim=2)
         self.T = T
-        start, end = (-1, 0) if superlevel else (0, 7)  ###################################
         self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
         self.K_max = K_max
         self.dimensions = dimensions
@@ -204,7 +205,7 @@ class PL_Layer(nn.Module):
 
 
 class PL_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, T=50, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[128, 64]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[128, 64]):
         """
         Args:
             superlevel: 
@@ -215,7 +216,7 @@ class PL_TopoLayer(nn.Module):
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.landscape_layer = PL_Layer(superlevel, T, K_max, dimensions, num_channels)
+        self.pl_layer = PL_Layer(superlevel, start, end, T, K_max, dimensions, num_channels)
         self.flatten = nn.Flatten()
         self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features)
 
@@ -227,9 +228,9 @@ class PL_TopoLayer(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        land = self.landscape_layer(input)
-        land = self.flatten(land)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
-        output = self.gtheta_layer(land)
+        pl = self.pl_layer(input)
+        pl = self.flatten(pl)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
+        output = self.gtheta_layer(pl)
         return output
     
     @staticmethod

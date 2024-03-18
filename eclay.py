@@ -6,17 +6,18 @@ from torch_topological.nn import CubicalComplex
 
     
 class EC_Layer(nn.Module):
-    def __init__(self, superlevel=False, T=50, num_channels=1):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, num_channels=1):
         """
         Args:
             superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
+            start: Min value of domain
+            end: Max value of domain
             T: How many discretized points to use
             num_channels: Number of channels in input
         """
         super().__init__()
         self.cub_cpx = CubicalComplex(superlevel, dim=2)
         self.T = T
-        start, end = (-1, 0) if superlevel else (0, 7)  ################################################ range
         self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
         self.num_channels = num_channels
 
@@ -68,16 +69,18 @@ class EC_Layer(nn.Module):
     
 
 class EC_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, T=50, num_channels=1, hidden_features=[128, 64]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, num_channels=1, hidden_features=[128, 64]):
         """
         Args:
             superlevel: 
-            T: 
+            start: Min value of domain
+            end: Max value of domain
+            T: How many discretized points to use
             num_channels: Number of channels in input
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.ec_layer = EC_Layer(superlevel, T, num_channels)
+        self.ec_layer = EC_Layer(superlevel, start, end, T, num_channels)
         self.flatten = nn.Flatten()
         self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features)
 
