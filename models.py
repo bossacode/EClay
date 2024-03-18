@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from dtm import DTMLayer
 from eclay import EC_TopoLayer
+from pllay import PL_TopoLayer
 
 
 class ResidualBlock(nn.Module):
@@ -238,6 +239,64 @@ class CNN_2(nn.Module):
         x = self.relu(self.conv_1(x))
         x = self.relu(self.conv_2(x))
         x = self.flatten(x)
+        x = self.relu(self.fc_1(x))
+        x = self.fc_2(x)
+        return x
+
+
+class EC_CNN_2(CNN_2):
+    def __init__(self, in_channels=1, num_classes=10,   # CNN params
+                 start=0, end=7, T=32, num_channels=1, hidden_features=[64, 32],   # EC parameters
+                 start_2=1, end_2=8,                            # EC parameters 2
+                 use_dtm=True, m0_1=0.05, m0_2=0.2, **kwargs):  # DTM parameters
+        super().__init__(in_channels, num_classes)
+        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.topo_layer_1 = EC_TopoLayer(False, start, end, T, num_channels, hidden_features)
+        self.topo_layer_2 = EC_TopoLayer(False, start_2, end_2, T, num_channels, hidden_features)
+        self.fc_1 = nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64)
+
+    def forward(self, input):
+        x_1 = self.relu(self.conv_1(input))
+        x_1 = self.relu(self.conv_2(x_1))
+        x_1 = self.flatten(x_1)
+
+        x_2 = self.dtm_1(input)
+        x_2 = self.topo_layer_1(x_2)
+
+        x_3 = self.dtm_2(input)
+        x_3 = self.topo_layer_2(x_3)
+
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x = self.relu(self.fc_1(x))
+        x = self.fc_2(x)
+        return x
+
+
+class PL_CNN_2(CNN_2):
+    def __init__(self, in_channels=1, num_classes=10,   # CNN params
+                 start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32],   # PL parameters
+                 start_2=1, end_2=8, K_max_2=3,                 # PL parameters 2
+                 use_dtm=True, m0_1=0.05, m0_2=0.2, **kwargs):  # DTM parameters
+        super().__init__(in_channels, num_classes)
+        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.topo_layer_1 = PL_TopoLayer(False, start, end, T, K_max, dimensions, num_channels, hidden_features)
+        self.topo_layer_2 = PL_TopoLayer(False, start_2, end_2, T, K_max_2, dimensions, num_channels, hidden_features)
+        self.fc_1 = nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64)
+
+    def forward(self, input):
+        x_1 = self.relu(self.conv_1(input))
+        x_1 = self.relu(self.conv_2(x_1))
+        x_1 = self.flatten(x_1)
+
+        x_2 = self.dtm_1(input)
+        x_2 = self.topo_layer_1(x_2)
+
+        x_3 = self.dtm_2(input)
+        x_3 = self.topo_layer_2(x_3)
+
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
         x = self.relu(self.fc_1(x))
         x = self.fc_2(x)
         return x
