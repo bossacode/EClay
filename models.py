@@ -228,19 +228,20 @@ class EClayResNet(ResNet):
 class CNN_2(nn.Module):
     def __init__(self, in_channels=1, num_classes=10):
         super().__init__()
-        self.conv_1 = nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1)
-        self.fc_1 = nn.Linear(in_features=784, out_features=64)
-        self.fc_2 = nn.Linear(in_features=64, out_features=num_classes)
-        self.relu = nn.ReLU()
+        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
+                                        nn.ReLU(),
+                                        nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1))
         self.flatten = nn.Flatten()
+        self.relu = nn.ReLU()
+        self.fc = nn.Sequential(nn.Linear(in_features=784, out_features=64),
+                                nn.ReLU(),
+                                nn.Linear(in_features=64, out_features=num_classes))
 
-    def forward(self, x):
-        x = self.relu(self.conv_1(x))
-        x = self.relu(self.conv_2(x))
+    def forward(self, input):
+        x = self.conv_layer(input)
         x = self.flatten(x)
-        x = self.relu(self.fc_1(x))
-        x = self.fc_2(x)
+        x = self.relu(x)
+        x = self.fc(x)
         return x
 
 
@@ -251,25 +252,31 @@ class EC_CNN_2(CNN_2):
                  use_dtm=True, m0_1=0.05, m0_2=0.2, **kwargs):  # DTM parameters
         super().__init__(in_channels, num_classes)
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_1 = EC_TopoLayer(False, start, end, T, num_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = EC_TopoLayer(False, start_2, end_2, T, num_channels, hidden_features)
-        self.fc_1 = nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64)
+        self.fc = nn.Sequential(nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64),
+                        nn.ReLU(),
+                        nn.Linear(in_features=64, out_features=num_classes))
+
 
     def forward(self, input):
-        x_1 = self.relu(self.conv_1(input))
-        x_1 = self.relu(self.conv_2(x_1))
+        # CNN
+        x_1 = self.conv_layer(input)
         x_1 = self.flatten(x_1)
-
+        
+        # EC Layer 1
         x_2 = self.dtm_1(input)
         x_2 = self.topo_layer_1(x_2)
 
+        # EC Layer 2
         x_3 = self.dtm_2(input)
         x_3 = self.topo_layer_2(x_3)
 
+        # FC Layer
         x = torch.concat((x_1, x_2, x_3), dim=-1)
-        x = self.relu(self.fc_1(x))
-        x = self.fc_2(x)
+        x = self.relu(x)
+        x = self.fc(x)
         return x
 
 
@@ -280,23 +287,28 @@ class PL_CNN_2(CNN_2):
                  use_dtm=True, m0_1=0.05, m0_2=0.2, **kwargs):  # DTM parameters
         super().__init__(in_channels, num_classes)
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_1 = PL_TopoLayer(False, start, end, T, K_max, dimensions, num_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = PL_TopoLayer(False, start_2, end_2, T, K_max_2, dimensions, num_channels, hidden_features)
-        self.fc_1 = nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64)
+        self.fc = nn.Sequential(nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64),
+                                nn.ReLU(),
+                                nn.Linear(in_features=64, out_features=num_classes))
 
     def forward(self, input):
-        x_1 = self.relu(self.conv_1(input))
-        x_1 = self.relu(self.conv_2(x_1))
+        # CNN
+        x_1 = self.conv_layer(input)
         x_1 = self.flatten(x_1)
-
+        
+        # PL Layer 1
         x_2 = self.dtm_1(input)
         x_2 = self.topo_layer_1(x_2)
 
+        # PL Layer 2
         x_3 = self.dtm_2(input)
         x_3 = self.topo_layer_2(x_3)
 
+        # FC Layer
         x = torch.concat((x_1, x_2, x_3), dim=-1)
-        x = self.relu(self.fc_1(x))
-        x = self.fc_2(x)
+        x = self.relu(x)
+        x = self.fc(x)
         return x
