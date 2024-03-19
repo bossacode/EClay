@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from collections import defaultdict
 import matplotlib.pyplot as plt
-from models import EClayResNet
+from models import EClayResNet, EC_CNN_2, PL_CNN_2
 import os
 import wandb
 
@@ -151,6 +151,14 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
         lr=config["lr_res"], weight_decay=0)
+    elif isinstance(model, EC_CNN_2) or isinstance(model, PL_CNN_2):
+        optim = Adam([
+            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
+            {"params": model.topo_layer_1.parameters()},
+            {"params": model.topo_layer_2.parameters()},
+            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
+        ],
+        lr=config["lr_topo"], weight_decay=0)
     else:
         optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
     scheduler = ReduceLROnPlateau(optim, factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)

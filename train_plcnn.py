@@ -23,7 +23,9 @@ config = {
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "epochs": 200,
     "factor": 0.3,  # factor to decay lr by when loss stagnates
-    "lr": 0.001,
+    "lr_conv": 0.001,
+    "lr_topo": 0.001,
+    "lr_fc": 0.001,
     "model_params": dict(
         in_channels=1,
         num_classes=10,
