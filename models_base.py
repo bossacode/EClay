@@ -5,9 +5,6 @@ from pllay import PL_TopoLayer
 from eclay import EC_TopoLayer
 
 
-
-
-
 class Pllay(nn.Module):
     def __init__(self, num_classes,
                  start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32],   # PL parameters
@@ -27,6 +24,7 @@ class Pllay(nn.Module):
 
         superlevel = False if use_dtm else True
         self.topo_layer = PL_TopoLayer(superlevel, start, end, T, K_max, dimensions, num_channels, hidden_features)
+        self.relu = nn.ReLU()
         self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -42,6 +40,7 @@ class Pllay(nn.Module):
         else:
             x = input
         x = self.topo_layer(x)
+        x = self.relu(x)
         output = self.fc(x)
         return output
 
@@ -61,9 +60,10 @@ class Pllay2(nn.Module):
         """
         super().__init__()
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_1 = PL_TopoLayer(False, start, end, T, K_max, dimensions, num_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = PL_TopoLayer(False, start_2, end_2, T, K_max_2, dimensions, num_channels, hidden_features)
+        self.relu = nn.ReLU()
         self.fc = nn.Linear(2*hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -81,6 +81,7 @@ class Pllay2(nn.Module):
         x_2 = self.topo_layer_2(x_2)
 
         x = torch.concat((x_1, x_2), dim=-1)
+        x = self.relu(x)
         output = self.fc(x)
         return output
 
@@ -104,6 +105,7 @@ class EClay(nn.Module):
 
         superlevel = False if use_dtm else True
         self.topo_layer = EC_TopoLayer(start, end, superlevel, T, num_channels, hidden_features)
+        self.relu = nn.ReLU()
         self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -119,6 +121,7 @@ class EClay(nn.Module):
         else:
             x = input
         x = self.topo_layer(x)
+        x = self.relu()
         output = self.fc(x)
         return output
 
@@ -138,9 +141,10 @@ class EClay2(nn.Module):
         """
         super().__init__()
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)        ##################################have to change range
         self.topo_layer_1 = EC_TopoLayer(False, start, end, T, num_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = EC_TopoLayer(False, start_2, end_2, T, num_channels, hidden_features)
+        self.relu = nn.ReLU()
         self.fc = nn.Linear(2*hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -158,5 +162,6 @@ class EClay2(nn.Module):
         x_2 = self.topo_layer_2(x_2)
 
         x = torch.concat((x_1, x_2), dim=-1)
+        x = self.relu(x)
         output = self.fc(x)
         return output
