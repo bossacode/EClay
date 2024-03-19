@@ -109,7 +109,6 @@ class EC_TopoLayer(nn.Module):
         layer_list = []
         for i in range(num_layers):
             layer_list.append(nn.Linear(features[i], features[i+1]))
-            # if i+1 != num_layers:
-            # layer_list.append(nn.BatchNorm1d(features[i+1])) # should i use BN? it might distort the features
-            layer_list.append(nn.ReLU())
+            if i+1 != num_layers:
+                layer_list.append(nn.ReLU())
         return nn.Sequential(*layer_list)
