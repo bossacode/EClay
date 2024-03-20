@@ -122,18 +122,19 @@ class ResNet(nn.Module):
 
 
 class EClayResNet(ResNet):
-    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2,2], filter_cfg=[16,32,64], num_classes=10,   # resnet params
-                 load_res=True, res_path="./MNIST/saved_weights/ResNet_MNIST/00_00/sim1.pt", freeze_res=True,                   # loading pretrained resnet
-                 T=200, num_channels=1, hidden_features=[128, 64],                                                  # EC_Topolayer params
-                 load_ec=True, ec_path="./MNIST/saved_weights/EClay_MNIST/00_00/sim1.pt", freeze_ec=True,                       # loading pretrained eclay
-                 use_dtm=True, **kwargs): # dtm params
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2], filter_cfg=[64, 128], num_classes=10,     # resnet params
+                 load_res=False, res_path="./MNIST/saved_weights/ResNet_MNIST/00_00/sim1.pt", freeze_res=True,      # loading pretrained resnet
+                 start=0, end=7, T=32, num_channels=1, hidden_features=[64, 32],                                    # EC params
+                 start_2=1, end_2=8,                                                                                # EC params 2
+                 load_ec=False, ec_path="./MNIST/saved_weights/EClay_MNIST/00_00/sim1.pt", freeze_ec=True,          # loading pretrained eclay
+                 use_dtm=True, m0_1=0.05, m0_2=0.2, **kwargs): # dtm params
         super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
-        self.use_dtm = use_dtm
-        if use_dtm:
-            self.dtm = DTMLayer(**kwargs, scale_dtm=True)
-        superlevel = False if use_dtm else True
-        self.topo_layer = EC_TopoLayer(superlevel, T, num_channels, hidden_features)
-        self.fc = nn.Linear(filter_cfg[-1] + hidden_features[-1], num_classes)
+        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.topo_layer_1 = EC_TopoLayer(False, start, end, T, num_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.topo_layer_2 = EC_TopoLayer(False, start_2, end_2, T, num_channels, hidden_features)
+        self.relu = nn.ReLU()
+        self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
 
         # self.num_topo_layers = 0    # counts number of topo layers(3 if only m0=0.05 is used, 6 if m0=0.2 is also used)
         # for m in self.modules():
@@ -149,21 +150,24 @@ class EClayResNet(ResNet):
     
     def forward(self, input):
         # ResNet
-        x = self.conv_layer(input)
+        x_1 = self.conv_layer(input)
         # x = self.max_pool(x)
-        x = self.res_layers(x)
-        x = self.avg_pool(x)
+        x_1 = self.res_layers(x_1)
+        x_1 = self.avg_pool(x_1)
 
-        # EClay
-        if self.use_dtm:
-            x_1 = self.dtm(input)
-        else:
-            x_1 = input
-        x_1 = self.topo_layer(x_1)
+        # EC Layer 1
+        x_2 = self.dtm_1(input)
+        x_2 = self.topo_layer_1(x_2)
+        x_2 = self.relu(x_2)
 
-        out = torch.concat((x, x_1), dim=-1)
-        output = self.fc(out)
-        return output
+        # EC Layer 2
+        x_3 = self.dtm_2(input)
+        x_3 = self.topo_layer_2(x_3)
+        x_3 = self.relu(x_3)
+
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x = self.fc(x)
+        return x
 
     def _load_pretrained_eclay(self, weight_path_1,
                               weigth_path_2=None, freeze=False):
@@ -233,9 +237,9 @@ class CNN_2(nn.Module):
                                         nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1))
         self.flatten = nn.Flatten()
         self.relu = nn.ReLU()
-        self.fc = nn.Sequential(nn.Linear(in_features=784, out_features=64),
+        self.fc = nn.Sequential(nn.Linear(784, 64),
                                 nn.ReLU(),
-                                nn.Linear(in_features=64, out_features=num_classes))
+                                nn.Linear(64, num_classes))
 
     def forward(self, input):
         x = self.conv_layer(input)
@@ -255,9 +259,9 @@ class EC_CNN_2(CNN_2):
         self.topo_layer_1 = EC_TopoLayer(False, start, end, T, num_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = EC_TopoLayer(False, start_2, end_2, T, num_channels, hidden_features)
-        self.fc = nn.Sequential(nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64),
-                        nn.ReLU(),
-                        nn.Linear(in_features=64, out_features=num_classes))
+        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
 
 
     def forward(self, input):
@@ -290,9 +294,9 @@ class PL_CNN_2(CNN_2):
         self.topo_layer_1 = PL_TopoLayer(False, start, end, T, K_max, dimensions, num_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = PL_TopoLayer(False, start_2, end_2, T, K_max_2, dimensions, num_channels, hidden_features)
-        self.fc = nn.Sequential(nn.Linear(in_features=784 + 2*hidden_features[-1], out_features=64),
+        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
                                 nn.ReLU(),
-                                nn.Linear(in_features=64, out_features=num_classes))
+                                nn.Linear(64, num_classes))
 
     def forward(self, input):
         # CNN
