@@ -150,7 +150,8 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
         optim = Adam([
             {"params": model.conv_layer.parameters()},
             {"params": model.res_layers.parameters()},
-            {"params": model.topo_layer.parameters(), "lr": config["lr_ec"]},
+            {"params": model.topo_layer_1.parameters(), "lr": config["lr_topo"]},
+            {"params": model.topo_layer_2.parameters(), "lr": config["lr_topo"]},
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
         lr=config["lr_res"], weight_decay=0)
