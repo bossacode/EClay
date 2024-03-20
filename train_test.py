@@ -45,32 +45,35 @@ class CustomDataset(Dataset):
 
 
 class EarlyStopping:
-    def __init__(self, patience, threshold):
+    def __init__(self, patience, threshold, val_metric="loss"):
         """
         patience:
         threshold:
+        val_metric: Validation metric used to measure model improvement. One of "loss" or "acc".
         """
         self.patience = patience
         self.threshold = threshold
         self.count = 0
-        self.best_loss, self.best_acc, self.best_epoch = float("inf"), None, None
+        self.best_loss, self.best_acc, self.best_epoch = float("inf"), 0, None
+        self.val_metic = val_metric
 
-    def stop_training(self, loss, acc, epoch):
-        stop, loss_improvement = True, True
-        if (self.best_loss - loss) > self.threshold:   # loss improvement needs to be above threshold 
+    def stop_training(self, val_loss, val_acc, epoch):
+        stop, improvement = True, True
+        diff = (self.best_loss - val_loss) if self.val_metic == "loss" else (val_acc - self.best_acc)
+        if diff > self.threshold:   # improvement needs to be above threshold 
             self.count = 0
-            self.best_loss, self.best_acc, self.best_epoch = loss, acc, epoch
-            return not stop, loss_improvement
+            self.best_loss, self.best_acc, self.best_epoch = val_loss, val_acc, epoch
+            return not stop, improvement
         else:
             self.count += 1
-            if self.count > self.patience:  # stop training if loss doesn't improve for patience + 1 epochs
+            if self.count > self.patience:  # stop training if no improvement for patience + 1 epochs
                 print("-"*30)
                 print(f"Best Epoch: {self.best_epoch}")
                 print(f"Best Validation Accuracy: {(self.best_acc):>0.1f}%")
                 print(f"Best Validation Loss: {self.best_loss:>8f}")
                 print("-"*30)
-                return stop, not loss_improvement
-            return not stop, not loss_improvement
+                return stop, not improvement
+            return not stop, not improvement
 
 
 def train(model, dataloader, loss_fn, optimizer, device):
@@ -124,7 +127,7 @@ def eval(model, dataloader, loss_fn, device):
     return loss, accuracy
 
 
-def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=False, log_grad=False):
+def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
     """
     Args:
         MODEL:
@@ -161,10 +164,12 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
         lr=config["lr_topo"], weight_decay=0)
     else:
         optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
-    scheduler = ReduceLROnPlateau(optim, factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
+    
+    scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
+                                  factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
     
     # set early stopping patience as 2.5 times that of scheduler patience
-    es = EarlyStopping(int(config["sch_patience"] * 2.5), config["threshold"])
+    es = EarlyStopping(int(config["sch_patience"] * 2.5), config["threshold"], val_metric=val_metric)
 
     if log_grad:
         wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
@@ -177,10 +182,10 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
         train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, config["device"])
         val_loss, val_acc = eval(model, val_dataloader, loss_fn, config["device"])
 
-        scheduler.step(val_loss)
+        scheduler.step(val_loss if val_metric == "loss" else val_acc)
 
         # early stopping
-        stop, loss_improvement = es.stop_training(val_loss, val_acc, n_epoch)
+        stop, improvement = es.stop_training(val_loss, val_acc, n_epoch)
         if log_metric:
             wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
                     "val":{"loss":val_loss, "accuracy":val_acc},
@@ -189,11 +194,11 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
             if weight_path is not None:
                 torch.save(model_state_dict, weight_path)   # save model weights
             break
-        elif loss_improvement and weight_path is not None:
+        elif improvement and weight_path is not None:
             model_state_dict = model.state_dict()
 
 
-def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=False, log_grad=False):
+def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
     """
     Args:
         MODEL:
@@ -204,7 +209,7 @@ def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=Fals
         weight_path:
         log: whether to log metrics to wandb
     """
-    train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
+    train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
 
     test_dataset = CustomDataset(x_path, y_path, mode="test")
     test_dataloader = DataLoader(test_dataset, config["batch_size"])
@@ -217,7 +222,7 @@ def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=Fals
     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None):
+def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """
     Args:
         MODEL:
@@ -230,10 +235,10 @@ def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log_m
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
+        train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
 
 
-def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None):
+def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """
     Args:
         MODEL:
@@ -246,4 +251,4 @@ def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log_metri
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad)
+        train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
