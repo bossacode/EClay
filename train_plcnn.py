@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("data", help="directory of the dataset")
 args = parser.parse_args()
 
-project = "PllayDTM_" + args.data
+project = "PLCNN_" + args.data
 
 # hyperparams, model params, metadata, etc.
 config = {
@@ -56,8 +56,8 @@ config = {
     "val_size": 0.8
     }
 
-# corrupt_prob_list = [0.0, 0.1, 0.2]
-# noise_prob_list = [0.0, 0.1, 0.2]
+# corrupt_prob_list = [0.0, 0.1, 0.2, 0.3]
+# noise_prob_list = [0.0, 0.1, 0.2, 0.3]
 corrupt_prob_list = [0.0]
 noise_prob_list = [0.0]
 len_cn = len(corrupt_prob_list)
@@ -92,5 +92,6 @@ if __name__ == "__main__":
             weight_path = weight_dir_list[i_cn] + f"sim{n_sim}.pt"  # file path to save trained weights
             # weight_path = None
             seed = torch.randint(0,1000, size=(1,)).item()          # used for different train/val split in each simulataion
-            # train_test_wandb(Pllay, config, x_path_list[i_cn], y_path, seed, weight_path, True, False, project, group, job_type)
+            # train_test_wandb(PL_CNN_2, config, x_path_list[i_cn], y_path, seed, weight_path, True, False, project, group, job_type)
+            # train_test_wandb(PL_CNN_2, config, x_path_list[i_cn], y_path, seed, weight_path, True, True, project, group, job_type)
             train_test(PL_CNN_2, config, x_path_list[i_cn], y_path, seed, weight_path)
