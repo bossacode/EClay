@@ -143,9 +143,7 @@ class EClayResNet(ResNet):
     
     def forward(self, input):
         # ResNet
-        x_1 = self.conv_layer(input)
-        # x = self.max_pool(x)
-        x_1 = self.res_layers(x_1)
+        x_1 = self.res_layers(input)
         x_1 = self.avg_pool(x_1)
 
         # EC Layer 1
