@@ -64,12 +64,7 @@ class ResNet(nn.Module):
         """
         super().__init__()
         assert len(block_cfg) == len(filter_cfg)
-        self.layer_input_channels = filter_cfg[0]   # channel of input that goes into res_layer1, value changes in _make_layers
-
-        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, filter_cfg[0], kernel_size=3, stride=1, padding=1),
-                                        nn.BatchNorm2d(self.layer_input_channels),
-                                        nn.ReLU())
-        # self.max_pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        self.layer_input_channels = in_channels # channel of input that goes into res_layer1, value changes in _make_layers
         
         # self.res_layer_1 = self._make_layers(block, res_in_channels, cfg[0], stride=1)
         # self.res_layer_2 = self._make_layers(block, 2*res_in_channels, cfg[1], stride=2)
@@ -112,9 +107,7 @@ class ResNet(nn.Module):
             block_list.append(block(self.layer_input_channels, num_filters))
         return nn.Sequential(*block_list)
 
-    def forward(self, input):
-        x = self.conv_layer(input)
-        # x = self.max_pool(x)
+    def forward(self, x):
         x = self.res_layers(x)
         x = self.avg_pool(x)
         output = self.fc(x)
