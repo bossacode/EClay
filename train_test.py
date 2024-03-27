@@ -3,53 +3,30 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-from collections import defaultdict
-import matplotlib.pyplot as plt
-from models import EClayResNet, EC_CNN_2, PL_CNN_2
-import os
+from models import ECCNN, PLCNN, ECResNet, PLResNet
 import wandb
 
 
 class CustomDataset(Dataset):
-    def __init__(self, x_path, y_path, mode, val_size=0.3, seed=123):
-        """
-        Args:
-            mode: one of "train", "val", or "test"
-        """
-        assert mode in ("train", "val", "test")
-        self.mode = mode
-
-        x_train, self.x_test = torch.load(x_path)
-        y_train, self.y_test = torch.load(y_path)
-        if self.mode == "train" or self.mode == "val":
-            self.x_tr, self.x_val, self.y_tr, self.y_val = train_test_split(x_train, y_train, test_size=val_size, shuffle=True,
-                                                                            random_state=seed, stratify=y_train)
-    
+    def __init__(self, file_path):
+        self.x, self.y = torch.load(file_path)
+        
     def __len__(self):
-        if self.mode == "train":
-            return len(self.y_tr)
-        elif self.mode == "val":
-            return len(self.y_val)
-        else:
-            return len(self.y_test)
+        return len(self.y)
 
-    def __getitem__(self, ind):
-        if self.mode == "train":
-            return self.x_tr[ind], self.y_tr[ind]       # train data
-        elif self.mode == "val":
-            return self.x_val[ind], self.y_val[ind]     # validation data
-        else:
-            return self.x_test[ind], self.y_test[ind]   # test data
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
 
 
 class EarlyStopping:
     def __init__(self, patience, threshold, val_metric="loss"):
-        """
-        patience:
-        threshold:
-        val_metric: Validation metric used to measure model improvement. One of "loss" or "acc".
+        """_summary_
+
+        Args:
+            patience (_type_): _description_
+            threshold (_type_): _description_
+            val_metric (str, optional): _description_. Defaults to "loss".
         """
         self.patience = patience
         self.threshold = threshold
@@ -127,26 +104,27 @@ def eval(model, dataloader, loss_fn, device):
     return loss, accuracy
 
 
-def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
-    """
+def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
+    """_summary_
+
     Args:
-        MODEL:
-        config:
-        x_path: file path to data
-        y_path: file path to label
-        seed:
-        weight_path:
-        log: whether to log metrics to wandb
+        MODEL (_type_): _description_
+        config (_type_): _description_
+        dir_path (_type_): _description_
+        weight_path (_type_, optional): _description_. Defaults to None.
+        log_metric (bool, optional): _description_. Defaults to False.
+        log_grad (bool, optional): _description_. Defaults to False.
+        val_metric (str, optional): _description_. Defaults to "loss".
     """
-    train_dataset = CustomDataset(x_path, y_path, mode="train", seed=seed, val_size=config["val_size"])
-    val_dataset = CustomDataset(x_path, y_path, mode="val", seed=seed, val_size=config["val_size"])
+    train_dataset = CustomDataset(dir_path + "train.pt")
+    val_dataset = CustomDataset(dir_path + "val.pt")
     train_dataloader = DataLoader(train_dataset, config["batch_size"], shuffle=True)
     val_dataloader = DataLoader(val_dataset, config["batch_size"])
 
     # set seed for initialization?
     model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
-    if isinstance(model, EClayResNet):
+    if isinstance(model, ECResNet) or isinstance(PLResNet):
         optim = Adam([
             {"params": model.res_layers.parameters(), "lr": config["lr_res"]},
             {"params": model.topo_layer_1.parameters()},
@@ -154,7 +132,7 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
         lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, EC_CNN_2) or isinstance(model, PL_CNN_2):
+    elif isinstance(model, ECCNN) or isinstance(model, PLCNN):
         optim = Adam([
             {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
             {"params": model.topo_layer_1.parameters()},
@@ -168,8 +146,7 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
     scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
                                   factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
     
-    # set early stopping patience as 2.5 times that of scheduler patience
-    es = EarlyStopping(int(config["sch_patience"] * 2.5), config["threshold"], val_metric=val_metric)
+    es = EarlyStopping(config["es_patience"], config["threshold"], val_metric=val_metric)
 
     if log_grad:
         wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
@@ -193,25 +170,28 @@ def train_val(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=
         if stop:
             if weight_path is not None:
                 torch.save(model_state_dict, weight_path)   # save model weights
+            if log_metric:
+                wandb.log({"best_epoch": es.best_epoch})
             break
         elif improvement and weight_path is not None:
             model_state_dict = model.state_dict()
 
 
-def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
-    """
-    Args:
-        MODEL:
-        config:
-        x_path: file path to data
-        y_path: file path to label
-        seed:
-        weight_path:
-        log: whether to log metrics to wandb
-    """
-    train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
+def train_test(MODEL, config, dir_path, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
+    """_summary_
 
-    test_dataset = CustomDataset(x_path, y_path, mode="test")
+    Args:
+        MODEL (_type_): _description_
+        config (_type_): _description_
+        dir_path (_type_): _description_
+        weight_path (_type_): _description_
+        log_metric (bool, optional): _description_. Defaults to False.
+        log_grad (bool, optional): _description_. Defaults to False.
+        val_metric (str, optional): _description_. Defaults to "loss".
+    """
+    train_val(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
+
+    test_dataset = CustomDataset(dir_path + "/test.pt")
     test_dataloader = DataLoader(test_dataset, config["batch_size"])
     loss_fn = nn.CrossEntropyLoss()
     
@@ -222,33 +202,41 @@ def train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric=Fals
     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(MODEL, config, x_path, y_path, seed, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
-    """
+def train_val_wandb(MODEL, config, dir_path, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+    """_summary_
+
     Args:
-        MODEL:
-        config:
-        x_path: file path to data
-        y_path: file path to label
-        seed:
-        weight_path:
-        log: whether to log metrics to wandb
+        MODEL (_type_): _description_
+        config (_type_): _description_
+        dir_path (_type_): _description_
+        weight_path (_type_, optional): _description_. Defaults to None.
+        log_metric (bool, optional): _description_. Defaults to True.
+        log_grad (bool, optional): _description_. Defaults to False.
+        project (_type_, optional): _description_. Defaults to None.
+        group (_type_, optional): _description_. Defaults to None.
+        job_type (_type_, optional): _description_. Defaults to None.
+        val_metric (str, optional): _description_. Defaults to "loss".
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_val(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
+        train_val(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
 
 
-def train_test_wandb(MODEL, config, x_path, y_path, seed, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
-    """
+def train_test_wandb(MODEL, config, dir_path, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+    """_summary_
+
     Args:
-        MODEL:
-        config:
-        x_path: file path to data
-        y_path: file path to label
-        seed:
-        weight_path:
-        log: whether to log metrics to wandb
+        MODEL (_type_): _description_
+        config (_type_): _description_
+        dir_path (_type_): _description_
+        weight_path (_type_): _description_
+        log_metric (bool, optional): _description_. Defaults to True.
+        log_grad (bool, optional): _description_. Defaults to False.
+        project (_type_, optional): _description_. Defaults to None.
+        group (_type_, optional): _description_. Defaults to None.
+        job_type (_type_, optional): _description_. Defaults to None.
+        val_metric (str, optional): _description_. Defaults to "loss".
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_test(MODEL, config, x_path, y_path, seed, weight_path, log_metric, log_grad, val_metric)
+        train_test(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
