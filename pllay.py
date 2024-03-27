@@ -1,9 +1,119 @@
-import numpy as np
 import torch
 import torch.nn as nn
-import gudhi
 from torch_topological.nn import CubicalComplex
 from dtm import DTMLayer
+# import gudhi
+# import numpy as np
+
+
+class PL(nn.Module):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], num_channels=1):
+        """
+        Args:
+            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
+            start: Min value of domain
+            end: Max value of domain
+            T: How many discretized points to use
+            K_max: 
+            dimensions: 
+            num_channels: Number of channels in input
+        """
+        super().__init__()
+        self.cub_cpx = CubicalComplex(superlevel, dim=2)
+        self.T = T
+        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
+        self.K_max = K_max
+        self.dimensions = dimensions
+        self.len_dim = len(dimensions)
+        self.num_channels = num_channels
+
+    def forward(self, input):
+        """
+        Args:
+            input: Tensor of shape [batch_size, num_channels, H, W]
+        Returns:
+            landscape: Tensor of shape [batch_size, num_channels, len_dim, K_max, T]
+        """
+        batch_size = input.shape[0]
+        input_device = input.device
+        if input_device.type != "cpu":
+            input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
+
+        landscape = torch.zeros(batch_size, self.num_channels, self.len_dim, self.K_max, self.T)
+        pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
+        for b in range(batch_size):
+            for c in range(self.num_channels):
+                for d, dim in enumerate(self.dimensions):
+                    pi = pi_list[b][c][dim]     # error if "dim" is out of range
+                    # pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
+                    pd = pi.diagram
+                    pl = self._pd_to_pl(pd)
+                    landscape[b, c, d, :, :] = pl
+        return landscape if input_device == "cpu" else landscape.to(input_device)
+
+    def _pd_to_pl(self, pd):
+        """
+        Args:
+            pd: persistence diagram, shape: [n, 2]
+        Returns:
+            pl: persistence landscapes, shape: [K_max, T]
+        """
+        num_ph = pd.shape[0]    # number of homology features (= n)
+        if num_ph == 0:         # no homology feature
+            return torch.zeros(self.K_max, self.T)
+            
+        birth = pd[:, [0]]  # shape: [n, 1]
+        death = pd[:, [1]]  # shape: [n, 1]
+        temp = torch.zeros(max(num_ph, self.K_max), self.T)
+        temp[:num_ph, :] = torch.maximum(torch.minimum(self.tseq - birth, death - self.tseq), torch.tensor(0))    # shape: [n, T]
+        pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
+        return pl
+
+
+class PLLay(nn.Module):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32]):
+        """
+        Args:
+            superlevel: 
+            T: 
+            K_max: 
+            dimensions: 
+            num_channels: Number of channels in input
+            hidden_features: List containing the dimension of fc layers
+        """
+        super().__init__()
+        self.pl_layer = PL(superlevel, start, end, T, K_max, dimensions, num_channels)
+        self.flatten = nn.Flatten()
+        self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features)
+
+    def forward(self, input):
+        """
+        Args:
+            input: Tensor of shape [batch_size, C, H, W]
+
+        Returns:
+            output: Tensor of shape [batch_size, out_features]
+        """
+        pl = self.pl_layer(input)
+        pl = self.flatten(pl)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
+        output = self.gtheta_layer(pl)
+        return output
+    
+    @staticmethod
+    def _make_gtheta_layer(in_features, hidden_features):
+        """
+        Args:
+            in_features:
+            hidden_features:
+        """
+        features = [in_features] + hidden_features
+        num_layers = len(hidden_features)
+        layer_list = []
+        for i in range(num_layers):
+            layer_list.append(nn.Linear(features[i], features[i+1]))
+            if i+1 != num_layers:
+                layer_list.append(nn.ReLU())
+        return nn.Sequential(*layer_list)
 
 
 # class AdPLCustomGrad(torch.autograd.Function):
@@ -138,113 +248,3 @@ from dtm import DTMLayer
 #         """
 #         land, grad = AdPLCustomGrad.apply(input, self.T, self.K_max, self.grid_size, self.dimensions)
 #         return land
-
-
-class PL_Layer(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], num_channels=1):
-        """
-        Args:
-            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
-            start: Min value of domain
-            end: Max value of domain
-            T: How many discretized points to use
-            K_max: 
-            dimensions: 
-            num_channels: Number of channels in input
-        """
-        super().__init__()
-        self.cub_cpx = CubicalComplex(superlevel, dim=2)
-        self.T = T
-        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
-        self.K_max = K_max
-        self.dimensions = dimensions
-        self.len_dim = len(dimensions)
-        self.num_channels = num_channels
-
-    def forward(self, input):
-        """
-        Args:
-            input: Tensor of shape [batch_size, num_channels, H, W]
-        Returns:
-            landscape: Tensor of shape [batch_size, num_channels, len_dim, K_max, T]
-        """
-        batch_size = input.shape[0]
-        input_device = input.device
-        if input_device.type != "cpu":
-            input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
-
-        landscape = torch.zeros(batch_size, self.num_channels, self.len_dim, self.K_max, self.T)
-        pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
-        for b in range(batch_size):
-            for c in range(self.num_channels):
-                for d, dim in enumerate(self.dimensions):
-                    pi = pi_list[b][c][dim]     # error if "dim" is out of range
-                    # pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
-                    pd = pi.diagram
-                    pl = self._pd_to_pl(pd)
-                    landscape[b, c, d, :, :] = pl
-        return landscape if input_device == "cpu" else landscape.to(input_device)
-
-    def _pd_to_pl(self, pd):
-        """
-        Args:
-            pd: persistence diagram, shape: [n, 2]
-        Returns:
-            pl: persistence landscapes, shape: [K_max, T]
-        """
-        num_ph = pd.shape[0]    # number of homology features (= n)
-        if num_ph == 0:         # no homology feature
-            return torch.zeros(self.K_max, self.T)
-            
-        birth = pd[:, [0]]  # shape: [n, 1]
-        death = pd[:, [1]]  # shape: [n, 1]
-        temp = torch.zeros(max(num_ph, self.K_max), self.T)
-        temp[:num_ph, :] = torch.maximum(torch.minimum(self.tseq - birth, death - self.tseq), torch.tensor(0))    # shape: [n, T]
-        pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
-        return pl
-
-
-class PL_TopoLayer(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32]):
-        """
-        Args:
-            superlevel: 
-            T: 
-            K_max: 
-            dimensions: 
-            num_channels: Number of channels in input
-            hidden_features: List containing the dimension of fc layers
-        """
-        super().__init__()
-        self.pl_layer = PL_Layer(superlevel, start, end, T, K_max, dimensions, num_channels)
-        self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features)
-
-    def forward(self, input):
-        """
-        Args:
-            input: Tensor of shape [batch_size, C, H, W]
-
-        Returns:
-            output: Tensor of shape [batch_size, out_features]
-        """
-        pl = self.pl_layer(input)
-        pl = self.flatten(pl)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
-        output = self.gtheta_layer(pl)
-        return output
-    
-    @staticmethod
-    def _make_gtheta_layer(in_features, hidden_features):
-        """
-        Args:
-            in_features:
-            hidden_features:
-        """
-        features = [in_features] + hidden_features
-        num_layers = len(hidden_features)
-        layer_list = []
-        for i in range(num_layers):
-            layer_list.append(nn.Linear(features[i], features[i+1]))
-            if i+1 != num_layers:
-                layer_list.append(nn.ReLU())
-        return nn.Sequential(*layer_list)
