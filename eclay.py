@@ -7,19 +7,20 @@ from torch_topological.nn import CubicalComplex
 
 class EC(nn.Module):
     def __init__(self, superlevel=False, start=0, end=7, T=32, in_channels=1):
-        """
+        """_summary_
+
         Args:
-            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
-            start: Min value of domain
-            end: Max value of domain
-            T: How many discretized points to use
-            num_channels: Number of channels in input
+            superlevel (bool, optional): Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets. Defaults to False.
+            start (int, optional): _description_. Defaults to 0.
+            end (int, optional): _description_. Defaults to 7.
+            T (int, optional): _description_. Defaults to 32.
+            in_channels (int, optional): _description_. Defaults to 1.
         """
         super().__init__()
         self.cub_cpx = CubicalComplex(superlevel, dim=2)
         self.T = T
         self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
-        self.num_channels = in_channels
+        self.in_channels = in_channels
 
     def forward(self, input):
         """
@@ -33,11 +34,10 @@ class EC(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
         
-        ec = torch.zeros(batch_size, self.num_channels, self.T)
+        ec = torch.zeros(batch_size, self.in_channels, self.T)
         pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
-            for c in range(self.num_channels):
-                # pd_0 = pi_list[b][c][0].diagram[:-1]    ##################### test w. & w.o. remove last row (min, inf.)
+            for c in range(self.in_channels):
                 pd_0 = pi_list[b][c][0].diagram
                 pd_1 = pi_list[b][c][1].diagram
                 betti_0 = torch.logical_and(pd_0[:, [0]] < self.tseq, pd_0[:, [1]] >= self.tseq).sum(dim=0)
@@ -47,7 +47,7 @@ class EC(nn.Module):
 
 
 class ECLay(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, num_channels=1, hidden_features=[64, 32]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, in_channels=1, hidden_features=[64, 32]):
         """
         Args:
             superlevel: 
@@ -58,9 +58,9 @@ class ECLay(nn.Module):
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.ec_layer = EC(superlevel, start, end, T, num_channels)
+        self.ec_layer = EC(superlevel, start, end, T, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(num_channels * T, hidden_features)
+        self.gtheta_layer = self._make_gtheta_layer(in_channels * T, hidden_features)
 
     def forward(self, input):
         """

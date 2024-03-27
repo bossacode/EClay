@@ -7,7 +7,7 @@ from dtm import DTMLayer
 
 
 class PL(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], num_channels=1):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], in_channels=1):
         """
         Args:
             superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
@@ -25,7 +25,7 @@ class PL(nn.Module):
         self.K_max = K_max
         self.dimensions = dimensions
         self.len_dim = len(dimensions)
-        self.num_channels = num_channels
+        self.in_channels = in_channels
 
     def forward(self, input):
         """
@@ -39,14 +39,12 @@ class PL(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
 
-        landscape = torch.zeros(batch_size, self.num_channels, self.len_dim, self.K_max, self.T)
+        landscape = torch.zeros(batch_size, self.in_channels, self.len_dim, self.K_max, self.T)
         pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
-            for c in range(self.num_channels):
+            for c in range(self.in_channels):
                 for d, dim in enumerate(self.dimensions):
-                    pi = pi_list[b][c][dim]     # error if "dim" is out of range
-                    # pd = pi.diagram[:-1] if dim == 0 else pi.diagram    # remove (birth, inf.) for dimension 0
-                    pd = pi.diagram
+                    pd = pi_list[b][c][dim].diagram     # error if "dim" is out of range
                     pl = self._pd_to_pl(pd)
                     landscape[b, c, d, :, :] = pl
         return landscape if input_device == "cpu" else landscape.to(input_device)
@@ -61,7 +59,7 @@ class PL(nn.Module):
         num_ph = pd.shape[0]    # number of homology features (= n)
         if num_ph == 0:         # no homology feature
             return torch.zeros(self.K_max, self.T)
-            
+        
         birth = pd[:, [0]]  # shape: [n, 1]
         death = pd[:, [1]]  # shape: [n, 1]
         temp = torch.zeros(max(num_ph, self.K_max), self.T)
@@ -71,7 +69,7 @@ class PL(nn.Module):
 
 
 class PLLay(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], num_channels=1, hidden_features=[32]):
+    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32]):
         """
         Args:
             superlevel: 
@@ -82,9 +80,9 @@ class PLLay(nn.Module):
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.pl_layer = PL(superlevel, start, end, T, K_max, dimensions, num_channels)
+        self.pl_layer = PL(superlevel, start, end, T, K_max, dimensions, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(num_channels * len(dimensions) * K_max * T, hidden_features)
+        self.gtheta_layer = self._make_gtheta_layer(in_channels * len(dimensions) * K_max * T, hidden_features)
 
     def forward(self, input):
         """
