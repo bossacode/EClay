@@ -8,8 +8,8 @@ from pllay import PLLay
 # PLNet
 class PLNet(nn.Module):
     def __init__(self, num_classes,
-                 start=0, end=7, T=32, K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32], # PL params
-                 use_dtm=True, **kwargs):                                                               # DTM params
+                 tseq=[0, 7, 32], K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32],  # PL params
+                 use_dtm=True, **kwargs):                                                           # DTM params
         """_summary_
 
         Args:
@@ -28,7 +28,7 @@ class PLNet(nn.Module):
             self.dtm = DTMLayer(**kwargs)
 
         superlevel = False if use_dtm else True
-        self.topo_layer = PLLay(superlevel, start, end, T, K_max, dimensions, in_channels, hidden_features)
+        self.topo_layer = PLLay(superlevel, tseq, K_max, dimensions, in_channels, hidden_features)
         self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -50,8 +50,8 @@ class PLNet(nn.Module):
 
 class PLNet2(nn.Module):
     def __init__(self, num_classes,
-                 start=0, end=7, T=32, K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32], # PL params
-                 start_2=1, end_2=8, K_max_2=3,                                                         # PL params 2
+                 tseq_1=[0, 7, 32], K_max_1=2, dimensions=[0, 1], in_channels=1, hidden_features=[32],  # PL params
+                 tseq_2=[1, 8, 32], K_max_2=3,                                                          # PL params 2
                  m0_1=0.05, m0_2=0.2, **kwargs):                                                        # DTM params
         """
         Args:
@@ -63,9 +63,9 @@ class PLNet2(nn.Module):
         """
         super().__init__()
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = PLLay(False, start, end, T, K_max, dimensions, in_channels, hidden_features)
+        self.topo_layer_1 = PLLay(False, tseq_1, K_max_1, dimensions, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = PLLay(False, start_2, end_2, T, K_max_2, dimensions, in_channels, hidden_features)
+        self.topo_layer_2 = PLLay(False, tseq_2, K_max_2, dimensions, in_channels, hidden_features)
         self.fc = nn.Linear(2*hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -90,8 +90,8 @@ class PLNet2(nn.Module):
 # ECNet
 class ECNet(nn.Module):
     def __init__(self, num_classes,
-                 start=0, end=7, T=32, in_channels=1, hidden_features=[64, 32], # EC params
-                 use_dtm=True, **kwargs):                                       # DTM params
+                 tseq=[0, 7, 32], in_channels=1, hidden_features=[64, 32],  # EC params
+                 use_dtm=True, **kwargs):                                   # DTM params
         """
         Args:
             out_features: output dimension of fc layer
@@ -106,7 +106,7 @@ class ECNet(nn.Module):
             self.dtm = DTMLayer(**kwargs)
 
         superlevel = False if use_dtm else True
-        self.topo_layer = ECLay(start, end, superlevel, T, in_channels, hidden_features)
+        self.topo_layer = ECLay(superlevel, tseq, in_channels, hidden_features)
         self.fc = nn.Linear(hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -128,8 +128,8 @@ class ECNet(nn.Module):
 
 class ECNet2(nn.Module):
     def __init__(self, num_classes,
-                 start=0, end=7, T=32, in_channels=1, hidden_features=[64, 32], # EC params
-                 start_2=1, end_2=8,                                            # EC params 2
+                 tseq_1=[0, 7, 32], in_channels=1, hidden_features=[64, 32],    # EC params
+                 tseq_2=[1, 8, 32],                                             # EC params 2
                  m0_1=0.05, m0_2=0.2, **kwargs):                                # DTM params
         """
         Args:
@@ -141,9 +141,9 @@ class ECNet2(nn.Module):
         """
         super().__init__()
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = ECLay(False, start, end, T, in_channels, hidden_features)
+        self.topo_layer_1 = ECLay(False, tseq_1, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = ECLay(False, start_2, end_2, T, in_channels, hidden_features)
+        self.topo_layer_2 = ECLay(False, tseq_2, in_channels, hidden_features)
         self.fc = nn.Linear(2*hidden_features[-1], num_classes)
 
     def forward(self, input):
@@ -163,6 +163,92 @@ class ECNet2(nn.Module):
         x = torch.concat((x_1, x_2), dim=-1)
         output = self.fc(x)
         return output
+
+
+# CNN
+class CNN(nn.Module):
+    def __init__(self, in_channels=1, num_classes=10):
+        super().__init__()
+        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
+                                        nn.ReLU(),
+                                        nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1),
+                                        nn.ReLU())
+        self.flatten = nn.Flatten()
+        self.fc = nn.Sequential(nn.Linear(784, 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
+
+    def forward(self, input):
+        x = self.conv_layer(input)
+        x = self.flatten(x)
+        x = self.fc(x)
+        return x
+
+
+class ECCNN(CNN):
+    def __init__(self, in_channels=1, num_classes=10,           # CNN params
+                 tseq_1=[0, 7, 32], hidden_features=[64, 32],   # EC params
+                 tseq_2=[1, 8, 32],                             # EC params 2
+                 m0_1=0.05, m0_2=0.2, **kwargs):                # DTM params
+        super().__init__(in_channels, num_classes)
+        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.topo_layer_1 = ECLay(False, tseq_1, in_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.topo_layer_2 = ECLay(False, tseq_2, in_channels, hidden_features)
+        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
+
+    def forward(self, input):
+        # CNN
+        x_1 = self.conv_layer(input)
+        x_1 = self.flatten(x_1)
+        
+        # EC Layer 1
+        x_2 = self.dtm_1(input)
+        x_2 = self.topo_layer_1(x_2)
+
+        # EC Layer 2
+        x_3 = self.dtm_2(input)
+        x_3 = self.topo_layer_2(x_3)
+
+        # FC Layer
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x = self.fc(x)
+        return x
+
+
+class PLCNN(CNN):
+    def __init__(self, in_channels=1, num_classes=10,                                   # CNN params
+                 tseq_1=[0, 7, 32], K_max_1=2, dimensions=[0, 1], hidden_features=[32], # PL params
+                 tseq_2=[1, 8, 32], K_max_2=3,                                          # PL params 2
+                 m0_1=0.05, m0_2=0.2, **kwargs):                                        # DTM params
+        super().__init__(in_channels, num_classes)
+        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.topo_layer_1 = PLLay(False, tseq_1, K_max_1, dimensions, in_channels, hidden_features)
+        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.topo_layer_2 = PLLay(False, tseq_2, K_max_2, dimensions, in_channels, hidden_features)
+        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
+
+    def forward(self, input):
+        # CNN
+        x_1 = self.conv_layer(input)
+        x_1 = self.flatten(x_1)
+        
+        # PL Layer 1
+        x_2 = self.dtm_1(input)
+        x_2 = self.topo_layer_1(x_2)
+
+        # PL Layer 2
+        x_3 = self.dtm_2(input)
+        x_3 = self.topo_layer_2(x_3)
+
+        # FC Layer
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x = self.fc(x)
+        return x
 
 
 # ResNet
@@ -249,15 +335,15 @@ class ResNet(nn.Module):
 
 
 class ECResNet(ResNet):
-    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2], filter_cfg=[64, 128], num_classes=10,     # ResNet params
-                 start=0, end=7, T=32, hidden_features=[64, 32],                                                    # EC params
-                 start_2=1, end_2=8,                                                                                # EC params 2
-                 m0_1=0.05, m0_2=0.2, **kwargs):                                                                    # DTM params
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2], filter_cfg=[64, 128], num_classes=10, # ResNet params
+                 tseq_1=[0, 7, 32], hidden_features=[64, 32],                                                   # EC params
+                 tseq_2=[1, 8, 32],                                                                             # EC params 2
+                 m0_1=0.05, m0_2=0.2, **kwargs):                                                                # DTM params
         super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = ECLay(False, start, end, T, in_channels, hidden_features)
+        self.topo_layer_1 = ECLay(False, tseq_1, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = ECLay(False, start_2, end_2, T, in_channels, hidden_features)
+        self.topo_layer_2 = ECLay(False, tseq_2, in_channels, hidden_features)
         self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
     
     def forward(self, input):
@@ -279,15 +365,15 @@ class ECResNet(ResNet):
 
 
 class PLResNet(ResNet):
-    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2], filter_cfg=[64, 128], num_classes=10,     # ResNet params
-                 start=0, end=7, T=32, K_max=2, dimensions=[0, 1], hidden_features=[32],                            # PL params
-                 start_2=1, end_2=8, K_max_2=3,                                                                     # PL params 2
-                 m0_1=0.05, m0_2=0.2, **kwargs):                                                                    # DTM params
+    def __init__(self, in_channels, block=ResidualBlock, block_cfg=[2,2], filter_cfg=[64, 128], num_classes=10, # ResNet params
+                 tseq_1=[0, 7, 32], K_max_1=2, dimensions=[0, 1], hidden_features=[32],                         # PL params
+                 tseq_2=[1, 8, 32], K_max_2=3,                                                                  # PL params 2
+                 m0_1=0.05, m0_2=0.2, **kwargs):                                                                # DTM params
         super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
         self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = PLLay(False, start, end, T, K_max, dimensions, in_channels, hidden_features)
+        self.topo_layer_1 = PLLay(False, tseq_1, K_max_1, dimensions, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = PLLay(False, start_2, end_2, T, K_max_2, dimensions, in_channels, hidden_features)
+        self.topo_layer_2 = PLLay(False, tseq_2, K_max_2, dimensions, in_channels, hidden_features)
         self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
     
     def forward(self, input):
@@ -307,87 +393,3 @@ class PLResNet(ResNet):
         x = self.fc(x)
         return x
 
-# CNN
-class CNN(nn.Module):
-    def __init__(self, in_channels=1, num_classes=10):
-        super().__init__()
-        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
-                                        nn.ReLU(),
-                                        nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1),
-                                        nn.ReLU())
-        self.flatten = nn.Flatten()
-        self.fc = nn.Sequential(nn.Linear(784, 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
-
-    def forward(self, input):
-        x = self.conv_layer(input)
-        x = self.flatten(x)
-        x = self.fc(x)
-        return x
-
-
-class ECCNN(CNN):
-    def __init__(self, in_channels=1, num_classes=10,               # CNN params
-                 start=0, end=7, T=32, hidden_features=[64, 32],    # EC params
-                 start_2=1, end_2=8,                                # EC params 2
-                 m0_1=0.05, m0_2=0.2, **kwargs):                    # DTM params
-        super().__init__(in_channels, num_classes)
-        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = ECLay(False, start, end, T, in_channels, hidden_features)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = ECLay(False, start_2, end_2, T, in_channels, hidden_features)
-        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
-
-    def forward(self, input):
-        # CNN
-        x_1 = self.conv_layer(input)
-        x_1 = self.flatten(x_1)
-        
-        # EC Layer 1
-        x_2 = self.dtm_1(input)
-        x_2 = self.topo_layer_1(x_2)
-
-        # EC Layer 2
-        x_3 = self.dtm_2(input)
-        x_3 = self.topo_layer_2(x_3)
-
-        # FC Layer
-        x = torch.concat((x_1, x_2, x_3), dim=-1)
-        x = self.fc(x)
-        return x
-
-
-class PLCNN(CNN):
-    def __init__(self, in_channels=1, num_classes=10,                                       # CNN params
-                 start=0, end=7, T=32, K_max=2, dimensions=[0, 1], hidden_features=[32],    # PL params
-                 start_2=1, end_2=8, K_max_2=3,                                             # PL params 2
-                 m0_1=0.05, m0_2=0.2, **kwargs):                                            # DTM params
-        super().__init__(in_channels, num_classes)
-        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
-        self.topo_layer_1 = PLLay(False, start, end, T, K_max, dimensions, in_channels, hidden_features)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
-        self.topo_layer_2 = PLLay(False, start_2, end_2, T, K_max_2, dimensions, in_channels, hidden_features)
-        self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
-
-    def forward(self, input):
-        # CNN
-        x_1 = self.conv_layer(input)
-        x_1 = self.flatten(x_1)
-        
-        # PL Layer 1
-        x_2 = self.dtm_1(input)
-        x_2 = self.topo_layer_1(x_2)
-
-        # PL Layer 2
-        x_3 = self.dtm_2(input)
-        x_3 = self.topo_layer_2(x_3)
-
-        # FC Layer
-        x = torch.concat((x_1, x_2, x_3), dim=-1)
-        x = self.fc(x)
-        return x

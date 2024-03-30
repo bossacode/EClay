@@ -6,20 +6,17 @@ from torch_topological.nn import CubicalComplex
 
 
 class EC(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, in_channels=1):
+    def __init__(self, superlevel=False, tseq=[0, 7, 32], in_channels=1):
         """_summary_
 
         Args:
-            superlevel (bool, optional): Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets. Defaults to False.
-            start (int, optional): _description_. Defaults to 0.
-            end (int, optional): _description_. Defaults to 7.
-            T (int, optional): _description_. Defaults to 32.
+            superlevel (bool, optional): Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets. Defaults to False.. Defaults to False.
+            tseq (list, optional): List containing [start, end, number of dicretized points]. Defaults to [0, 7, 32].
             in_channels (int, optional): _description_. Defaults to 1.
         """
         super().__init__()
         self.cub_cpx = CubicalComplex(superlevel, dim=2)
-        self.T = T
-        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
+        self.tseq = torch.linspace(*tseq).unsqueeze(0)  # shape: [1, T]
         self.in_channels = in_channels
 
     def forward(self, input):
@@ -34,7 +31,7 @@ class EC(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
         
-        ec = torch.zeros(batch_size, self.in_channels, self.T)
+        ec = torch.zeros(batch_size, self.in_channels, len(self.tseq))
         pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.in_channels):
@@ -47,20 +44,19 @@ class EC(nn.Module):
 
 
 class ECLay(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, in_channels=1, hidden_features=[64, 32]):
-        """
+    def __init__(self, superlevel=False, tseq=[0, 7, 32], in_channels=1, hidden_features=[64, 32]):
+        """_summary_
+
         Args:
-            superlevel: 
-            start: Min value of domain
-            end: Max value of domain
-            T: How many discretized points to use
-            num_channels: Number of channels in input
-            hidden_features: List containing the dimension of fc layers
+            superlevel (bool, optional): _description_. Defaults to False.
+            tseq (list, optional): _description_. Defaults to [0, 7, 32].
+            in_channels (int, optional): _description_. Defaults to 1.
+            hidden_features (list, optional): _description_. Defaults to [64, 32].
         """
         super().__init__()
-        self.ec_layer = EC(superlevel, start, end, T, in_channels)
+        self.ec_layer = EC(superlevel, tseq, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(in_channels * T, hidden_features)
+        self.gtheta_layer = self._make_gtheta_layer(in_channels * tseq[-1], hidden_features)
 
     def forward(self, input):
         """

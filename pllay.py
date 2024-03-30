@@ -1,27 +1,24 @@
 import torch
 import torch.nn as nn
 from torch_topological.nn import CubicalComplex
-from dtm import DTMLayer
 # import gudhi
 # import numpy as np
 
 
 class PL(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0,1], in_channels=1):
-        """
+    def __init__(self, superlevel=False, tseq=[0, 7, 32], K_max=2, dimensions=[0,1], in_channels=1):
+        """_summary_
+
         Args:
-            superlevel: Whether to calculate topological features based on superlevel sets. If set to False, uses sublevels sets
-            start: Min value of domain
-            end: Max value of domain
-            T: How many discretized points to use
-            K_max: 
-            dimensions: 
-            num_channels: Number of channels in input
+            superlevel (bool, optional): _description_. Defaults to False.
+            tseq (list, optional): _description_. Defaults to [0, 7, 32].
+            K_max (int, optional): _description_. Defaults to 2.
+            dimensions (list, optional): _description_. Defaults to [0,1].
+            in_channels (int, optional): _description_. Defaults to 1.
         """
         super().__init__()
         self.cub_cpx = CubicalComplex(superlevel, dim=2)
-        self.T = T
-        self.tseq = torch.linspace(start, end, T).unsqueeze(0)  # shape: [1, T]
+        self.tseq = torch.linspace(*tseq).unsqueeze(0)  # shape: [1, T]
         self.K_max = K_max
         self.dimensions = dimensions
         self.len_dim = len(dimensions)
@@ -39,7 +36,7 @@ class PL(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
 
-        landscape = torch.zeros(batch_size, self.in_channels, self.len_dim, self.K_max, self.T)
+        landscape = torch.zeros(batch_size, self.in_channels, self.len_dim, self.K_max, len(self.tseq))
         pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.in_channels):
@@ -58,7 +55,7 @@ class PL(nn.Module):
         """
         num_ph = pd.shape[0]    # number of homology features (= n)
         if num_ph == 0:         # no homology feature
-            return torch.zeros(self.K_max, self.T)
+            return torch.zeros(self.K_max, len(self.tseq))
         
         birth = pd[:, [0]]  # shape: [n, 1]
         death = pd[:, [1]]  # shape: [n, 1]
@@ -69,7 +66,7 @@ class PL(nn.Module):
 
 
 class PLLay(nn.Module):
-    def __init__(self, superlevel=False, start=0, end=7, T=32, K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32]):
+    def __init__(self, superlevel=False, tseq=[0, 7, 32], K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32]):
         """
         Args:
             superlevel: 
@@ -80,9 +77,9 @@ class PLLay(nn.Module):
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.pl_layer = PL(superlevel, start, end, T, K_max, dimensions, in_channels)
+        self.pl_layer = PL(superlevel, tseq, K_max, dimensions, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(in_channels * len(dimensions) * K_max * T, hidden_features)
+        self.gtheta_layer = self._make_gtheta_layer(in_channels * len(dimensions) * K_max * tseq[-1], hidden_features)
 
     def forward(self, input):
         """
