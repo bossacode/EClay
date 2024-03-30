@@ -37,10 +37,10 @@ config["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 if __name__ == "__main__":
     wandb.login()
     project = args.model + "_" + args.data  # used as project name in wandb
-
-    # noise_prob_list = [0.0]
-    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
-
+    ntimes = 3  # number of simulations to run
+    noise_prob_list = [0.0]
+    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    
     # loop over data with different noise probability
     for p in noise_prob_list:
         noise_prob = str(int(p * 100)).zfill(2)
@@ -53,8 +53,8 @@ if __name__ == "__main__":
         print("-"*30)
         
         # loop over number of simulations
-        for n_sim in range(1, config["ntimes"]+1):
-            print(f"\nSimulation: [{n_sim} / {config['ntimes']}]")
+        for n_sim in range(1, ntimes+1):
+            print(f"\nSimulation: [{n_sim} / {ntimes}]")
             print("-"*30)
             
             dir_path = f"{args.data}/generated_data/noise_{noise_prob}/"    # directory path to data
@@ -62,5 +62,5 @@ if __name__ == "__main__":
             group = noise_prob                                              # used for grouping experiments in wandb
             job_type = f"sim{n_sim}"                                        # used for specifying runs in wandb        
             
-            # train_test_wandb(models[args.model], config, dir_path, weight_path, True, False, project, group, job_type)
-            train_test(models[args.model], config, dir_path, weight_path)
+            train_test_wandb(models[args.model], config, dir_path, weight_path, True, False, project, group, job_type)
+            # train_test(models[args.model], config, dir_path, weight_path)
