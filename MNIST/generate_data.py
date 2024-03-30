@@ -70,7 +70,7 @@ import os
 
 
 n_train = 10                   # number of training samples for each label
-n_val = int(n_train * 0.3)     # number of validation samples for each label
+n_val = int(n_train * 0.4)     # number of validation samples for each label
 
 
 def add_noise(x, p):
