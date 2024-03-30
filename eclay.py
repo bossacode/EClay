@@ -31,7 +31,7 @@ class EC(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
         
-        ec = torch.zeros(batch_size, self.in_channels, len(self.tseq))
+        ec = torch.zeros(batch_size, self.in_channels, self.tseq.shape[-1])
         pi_list = self.cub_cpx(input)   # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.in_channels):

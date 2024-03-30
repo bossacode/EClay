@@ -36,7 +36,7 @@ class PL(nn.Module):
         if input_device.type != "cpu":
             input = input.cpu()     # bc. calculation of persistence diagram is much faster on cpu
 
-        landscape = torch.zeros(batch_size, self.in_channels, self.len_dim, self.K_max, len(self.tseq))
+        landscape = torch.zeros(batch_size, self.in_channels, self.len_dim, self.K_max, self.tseq.shape[-1])
         pi_list = self.cub_cpx(input)  # lists nested in order of batch_size, channel and dimension
         for b in range(batch_size):
             for c in range(self.in_channels):
@@ -59,7 +59,7 @@ class PL(nn.Module):
         
         birth = pd[:, [0]]  # shape: [n, 1]
         death = pd[:, [1]]  # shape: [n, 1]
-        temp = torch.zeros(max(num_ph, self.K_max), self.T)
+        temp = torch.zeros(max(num_ph, self.K_max), self.tseq.shape[-1])
         temp[:num_ph, :] = torch.maximum(torch.minimum(self.tseq - birth, death - self.tseq), torch.tensor(0))    # shape: [n, T]
         pl = torch.sort(temp, dim=0, descending=True).values[:self.K_max, :]    # shape: [K_max, T]
         return pl
