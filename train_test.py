@@ -124,7 +124,7 @@ def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_g
     # set seed for initialization?
     model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
-    if isinstance(model, ECResNet) or isinstance(PLResNet):
+    if isinstance(model, ECResNet) or isinstance(model, PLResNet):
         optim = Adam([
             {"params": model.res_layers.parameters(), "lr": config["lr_res"]},
             {"params": model.topo_layer_1.parameters()},
