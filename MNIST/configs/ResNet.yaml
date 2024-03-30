@@ -1,0 +1,16 @@
+batch_size: 16
+epochs: 500
+es_patience: 50
+factor: 0.1
+lr: 0.005
+model_params:
+  block_cfg:
+  - 2
+  - 2
+  filter_cfg:
+  - 64
+  - 128
+  in_channels: 1
+  num_classes: 10
+sch_patience: 20
+threshold: 0.001
