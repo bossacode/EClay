@@ -35,11 +35,12 @@ config["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 if __name__ == "__main__":
+    ntimes = 100  # number of simulations to run
+    # noise_prob_list = [0.0]
+    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+
     wandb.login()
-    project = args.model + "_" + args.data  # used as project name in wandb
-    ntimes = 3  # number of simulations to run
-    noise_prob_list = [0.0]
-    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    project = args.data + "_" + args.model  # used as project name in wandb
     
     # loop over data with different noise probability
     for p in noise_prob_list:
