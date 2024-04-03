@@ -1,0 +1,40 @@
+batch_size: 16
+epochs: 1000
+es_patience: 50
+factor: 0.1
+lr_fc: 0.001
+lr_res: 0.005
+lr_topo: 0.0001
+model_params:
+  block_cfg:
+  - 2
+  - 2
+  filter_cfg:
+  - 64
+  - 128
+  hidden_features:
+  - 64
+  - 32
+  in_channels: 1
+  lims:
+  - - 1
+    - 28
+  - - 1
+    - 28
+  m0_1: 0.05
+  m0_2: 0.2
+  num_classes: 10
+  r: 2
+  size:
+  - 28
+  - 28
+  tseq_1:
+  - 0
+  - 7
+  - 32
+  tseq_2:
+  - 1
+  - 8
+  - 32
+sch_patience: 20
+threshold: 0.001
