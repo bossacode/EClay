@@ -294,7 +294,10 @@ class ResNet(nn.Module):
 
         self.res_layers = nn.Sequential(*[self._make_layers(block, num_filters, num_blocks, stride=(1 if i==0 else 2)) for i, (num_blocks, num_filters) in enumerate(zip(block_cfg, filter_cfg))])
         self.avg_pool = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten())
-        self.fc = nn.Linear(filter_cfg[-1], num_classes)
+        # self.fc = nn.Linear(filter_cfg[-1], num_classes)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
 
         # weight initialization
         for m in self.modules():
@@ -344,7 +347,10 @@ class ECResNet(ResNet):
         self.topo_layer_1 = ECLay(False, tseq_1, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = ECLay(False, tseq_2, in_channels, hidden_features)
-        self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
+        # self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
+                        nn.ReLU(),
+                        nn.Linear(64, num_classes))
     
     def forward(self, input):
         # ResNet
@@ -374,7 +380,10 @@ class PLResNet(ResNet):
         self.topo_layer_1 = PLLay(False, tseq_1, K_max_1, dimensions, in_channels, hidden_features)
         self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = PLLay(False, tseq_2, K_max_2, dimensions, in_channels, hidden_features)
-        self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
+        # self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
     
     def forward(self, input):
         # ResNet
