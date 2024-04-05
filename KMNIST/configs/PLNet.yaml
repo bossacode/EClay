@@ -2,7 +2,7 @@ batch_size: 16
 epochs: 1000
 es_patience: 25
 factor: 0.1
-lr: 0.001
+lr: 0.01
 model_params:
   K_max: 2
   dimensions:
@@ -24,8 +24,8 @@ model_params:
   - 28
   tseq:
   - 0
-  - 7
+  - 1
   - 32
-  use_dtm: true
+  use_dtm: false
 sch_patience: 10
 threshold: 0.001

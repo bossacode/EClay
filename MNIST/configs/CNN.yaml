@@ -1,5 +1,5 @@
 batch_size: 16
-epochs: 500
+epochs: 1000
 es_patience: 25
 factor: 0.1
 lr: 0.0001

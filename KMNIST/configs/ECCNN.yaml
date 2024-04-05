@@ -24,11 +24,11 @@ model_params:
   - 28
   tseq_1:
   - 0
-  - 7
+  - 9
   - 32
   tseq_2:
   - 1
-  - 8
+  - 10
   - 32
 sch_patience: 10
 threshold: 0.001

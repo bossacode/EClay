@@ -1,6 +1,6 @@
 batch_size: 16
-epochs: 500
-es_patience: 50
+epochs: 1000
+es_patience: 25
 factor: 0.1
 lr_fc: 0.001
 lr_res: 0.005
@@ -36,5 +36,5 @@ model_params:
   - 1
   - 8
   - 32
-sch_patience: 20
+sch_patience: 10
 threshold: 0.001
