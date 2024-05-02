@@ -8,10 +8,6 @@ import numpy as np
 import os
 
 
-n_train = 10                   # number of training samples for each label
-n_val = int(n_train * 0.4)     # number of validation samples for each label
-
-
 def add_noise(x, p):
     dist = Bernoulli(probs=p)
     x_noise = torch.where(dist.sample(x.shape).bool(),
@@ -46,6 +42,7 @@ def generate_data(n_train, n_val, noise_prob_list):
     y_test = test_data.targets
 
     # sample "n_train" training data and "n_val" validation data for each label
+    # total training data size is n_train * # of labels
     train_idx_list = []
     val_idx_list = []
     for label in y_train.unique():
@@ -62,7 +59,7 @@ def generate_data(n_train, n_val, noise_prob_list):
     dtm_02 = DTMLayer(m0=0.2)
 
     for p in noise_prob_list:
-        dir_name = "generated_data/noise_" + str(int(p * 100)).zfill(2) + "/"
+        dir_name = f"generated_data/data_{n_train}/noise_" + str(int(p * 100)).zfill(2) + "/"
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
         x_train_noise = add_noise(x_train_sampled, p)
@@ -81,8 +78,12 @@ def generate_data(n_train, n_val, noise_prob_list):
 
 if __name__ == "__main__":
     noise_prob_list = [0.0]
-    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]
+    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    n_train_list = [10]
+    # n_train_list = [10, 30, 50, 70, 100]    # list of number of training samples for each label
 
     torch.manual_seed(123)
     np.random.seed(123)
-    generate_data(n_train, n_val, noise_prob_list)
+    for n_train in n_train_list:
+        n_val = int(n_train * 0.4)  # number of validation samples for each label
+        generate_data(n_train, n_val, noise_prob_list)
