@@ -22,8 +22,8 @@ model_params:
   - 8
   - 32
   interval_3:
-  - -3
-  - 3
+  - -8
+  - 0
   - 32
   num_classes: 10
   size:
