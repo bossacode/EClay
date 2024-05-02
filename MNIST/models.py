@@ -62,7 +62,7 @@ class ECCNN_Topo(CNN):
         super().__init__(in_channels, num_classes)
         self.topo_layer_1 = ECLay(as_vertices, sublevel, size, interval_1, in_channels, hidden_features)
         self.topo_layer_2 = ECLay(as_vertices, sublevel, size, interval_2, in_channels, hidden_features)
-        self.topo_layer_3 = ECLay(as_vertices, sublevel, [28, 28], interval_3, 1, hidden_features)
+        self.topo_layer_3 = ECLay(as_vertices, sublevel=False, size=[28, 28], interval=interval_3, in_channels=1, hidden_features=hidden_features)
         self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
                                 nn.ReLU(),
                                 nn.Linear(64, num_classes))
