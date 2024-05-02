@@ -80,7 +80,7 @@ class CubEcc2d(nn.Module):
         self.scale = (self.resolution - 1) / (self.t_max - self.t_min)
         self.cal_ecc = self._cal_ecc_vtx if self.as_vertices else self._cal_ecc_topdim
         self.idx_dict = {self._pix_i2vtx_i(i):i for i in range(size[0]*size[1])} if as_vertices else {self._pix_i2sq_i(i):i for i in range(size[0]*size[1])}
-        self.impulse = norm(loc=0, scale=0.01).pdf(0)
+        self.impulse = norm(loc=0, scale=0.1).pdf(0)
 
     def forward(self, x):
         """_summary_
