@@ -1,7 +1,9 @@
 import torch
 from torch.distributions import Bernoulli
+from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
+from dtm import DTMLayer
 import numpy as np
 import os
 
@@ -81,6 +83,14 @@ def add_noise(x, p):
     return x_noise
 
 
+def dtm_transform(x, dtm):
+    data_list = []
+    dataloader = DataLoader(x, batch_size=32)
+    for data in dataloader:
+        data_list.append(dtm(data))
+    return torch.concat(data_list, dim=0)
+
+
 def generate_data(n_train, n_val, noise_prob_list):
     """_summary_
 
@@ -111,21 +121,30 @@ def generate_data(n_train, n_val, noise_prob_list):
     x_train_sampled, y_train_sampled = x_train[train_idx], y_train[train_idx]
     x_val_sampled, y_val_sampled = x_train[val_idx], y_train[val_idx]
 
+    dtm_005 = DTMLayer(m0=0.05)
+    dtm_02 = DTMLayer(m0=0.2)
+
     for p in noise_prob_list:
         dir_name = "generated_data/noise_" + str(int(p * 100)).zfill(2) + "/"
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
         x_train_noise = add_noise(x_train_sampled, p)
+        x_train_noise_dtm_005 = dtm_transform(x_train_noise, dtm_005)
+        x_train_noise_dtm_02 = dtm_transform(x_train_noise, dtm_02)
         x_val_noise = add_noise(x_val_sampled, p)
+        x_val_noise_dtm_005 = dtm_transform(x_val_noise, dtm_005)
+        x_val_noise_dtm_02 = dtm_transform(x_val_noise, dtm_02)
         x_test_noise = add_noise(x_test, p)
-        torch.save((x_train_noise, y_train_sampled), dir_name + "train.pt")
-        torch.save((x_val_noise, y_val_sampled), dir_name + "val.pt")
-        torch.save((x_test_noise, y_test), dir_name + "test.pt")
+        x_test_noise_dtm_005 = dtm_transform(x_test_noise, dtm_005)
+        x_test_noise_dtm_02 = dtm_transform(x_test_noise, dtm_02)
+        torch.save((x_train_noise, x_train_noise_dtm_005, x_train_noise_dtm_02, y_train_sampled), dir_name + "train.pt")
+        torch.save((x_val_noise, x_val_noise_dtm_005, x_val_noise_dtm_02, y_val_sampled), dir_name + "val.pt")
+        torch.save((x_test_noise, x_test_noise_dtm_005, x_test_noise_dtm_02, y_test), dir_name + "test.pt")
 
 
 if __name__ == "__main__":
-    # noise_prob_list = [0.0]
-    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    noise_prob_list = [0.0]
+    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]
 
     torch.manual_seed(123)
     np.random.seed(123)
