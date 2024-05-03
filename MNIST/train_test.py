@@ -10,13 +10,13 @@ import wandb
 
 class CustomDataset(Dataset):
     def __init__(self, file_path):
-        self.x, self.x_dtm_005, self.x_dtm_02, self.y = torch.load(file_path)
+        self.x, self.ecc_dtm005, self.ecc_dtm02, self.pl_dtm005, self.pl_dtm02, self.y = torch.load(file_path)
         
     def __len__(self):
         return len(self.y)
 
     def __getitem__(self, idx):
-        return self.x[idx], self.x_dtm_005[idx], self.x_dtm_02[idx], self.y[idx]
+        return self.x[idx], self.ecc_dtm005[idx], self.ecc_dtm02[idx], self.pl_dtm005[idx], self.pl_dtm02[idx], self.y[idx]
 
 
 class EarlyStopping:
