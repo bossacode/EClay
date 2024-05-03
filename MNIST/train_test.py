@@ -53,6 +53,37 @@ class EarlyStopping:
             return not stop, not improvement
 
 
+def set_optimizer(model, config):
+    if isinstance(model, ECResNet) or isinstance(model, PLResNet):
+        optim = Adam([
+            {"params": model.res_layers.parameters(), "lr": config["lr_res"]},
+            {"params": model.topo_layer_1.parameters()},
+            {"params": model.topo_layer_2.parameters()},
+            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
+        ],
+        lr=config["lr_topo"], weight_decay=0)
+    elif isinstance(model, ECCNN) or isinstance(model, PLCNN):
+        optim = Adam([
+            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
+            {"params": model.gtheta_1.parameters()},
+            {"params": model.gtheta_2.parameters()},
+            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
+        ],
+        lr=config["lr_topo"], weight_decay=0)
+    elif isinstance(model, ECCNN_Topo):
+        optim = Adam([
+            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
+            {"params": model.gtheta_1.parameters()},
+            {"params": model.gtheta_2.parameters()},
+            {"params": model.topo_layer_3.parameters(), "lr":config["lr_topo_2"]},
+            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
+        ],
+        lr=config["lr_topo"], weight_decay=0)
+    else:
+        optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
+    return optim
+
+
 def train(model, dataloader, loss_fn, optimizer, device):
     """
     train for 1 epoch
@@ -122,38 +153,9 @@ def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_g
     train_dataloader = DataLoader(train_dataset, config["batch_size"], shuffle=True)
     val_dataloader = DataLoader(val_dataset, config["batch_size"])
 
-    # set seed for initialization?
     model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
-    if isinstance(model, ECResNet) or isinstance(model, PLResNet):
-        optim = Adam([
-            {"params": model.res_layers.parameters(), "lr": config["lr_res"]},
-            {"params": model.topo_layer_1.parameters()},
-            {"params": model.topo_layer_2.parameters()},
-            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
-        ],
-        lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, ECCNN) or isinstance(model, PLCNN):
-        optim = Adam([
-            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
-            {"params": model.topo_layer_1.parameters()},
-            {"params": model.topo_layer_2.parameters()},
-            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
-        ],
-        lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, ECCNN_Topo):
-        optim = Adam([
-            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
-            {"params": model.topo_layer_1.parameters()},
-            {"params": model.topo_layer_2.parameters()},
-            {"params": model.topo_layer_3.parameters(), "lr":config["lr_topo_2"]},
-            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
-        ],
-        lr=config["lr_topo"], weight_decay=0)
-        pass
-    else:
-        optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
-    
+    optim  = set_optimizer(model, config)
     scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
                                   factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
     
