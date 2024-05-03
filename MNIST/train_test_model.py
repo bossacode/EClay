@@ -46,7 +46,7 @@ if __name__ == "__main__":
         # loop over data with different noise probability
         for p in noise_prob_list:
             noise_prob = str(int(p * 100)).zfill(2)
-            weight_dir = f"saved_weights/data_{n_train}/{args.model}/{noise_prob}/"    # directory path to save trained weights
+            weight_dir = f"saved_weights/data_{n_train*10}/{args.model}/{noise_prob}/"    # directory path to save trained weights
             if not os.path.exists(weight_dir):
                 os.makedirs(weight_dir)
             
