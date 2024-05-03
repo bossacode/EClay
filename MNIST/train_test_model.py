@@ -39,9 +39,9 @@ if __name__ == "__main__":
 
     wandb.login()
     for n_train in n_train_list:
-        project = f"MNIST{n_train}_" + args.model    # used as project name in wandb
+        project = f"MNIST{n_train*10}_" + args.model    # used as project name in wandb
         print("-"*30)
-        print(f"Number of data for each label: {n_train}")
+        print(f"Number of training data: {n_train*10}")
         print("-"*30)
         # loop over data with different noise probability
         for p in noise_prob_list:
