@@ -322,8 +322,35 @@ class CubECC2d(nn.Module):
         return dimension.flatten()
 
 
+class GTheta(nn.Module):
+    def __init__(self, num_features=[32, 32]):
+        """
+        Args:
+            features (list, optional): List containing the size of each layer. Defaults to [32, 32].
+        """
+        super().__init__()
+        self.gtheta = self._make_gtheta_layer(num_features)
+
+    def forward(self, x):
+        return self.gtheta(x)
+
+    @staticmethod
+    def _make_gtheta_layer(features):
+        """
+        Args:
+            in_features:
+            hidden_features:
+        """
+        num_layers = len(features) - 1
+        layer_list = []
+        for i in range(num_layers):
+            layer_list.append(nn.Linear(features[i], features[i+1]))
+            layer_list.append(nn.ReLU())
+        return nn.Sequential(*layer_list)
+
+
 class ECLay(nn.Module):
-    def __init__(self, as_vertices=True, sublevel=True, size=[28, 28], interval=[0, 7, 32], in_channels=1, hidden_features=[64, 32]):
+    def __init__(self, as_vertices=True, sublevel=True, size=[28, 28], interval=[0, 7, 32], in_channels=1, hidden_features=[32]):
         """_summary_
 
         Args:
@@ -335,32 +362,15 @@ class ECLay(nn.Module):
         super().__init__()
         self.ec_layer = CubECC2d(as_vertices, sublevel, size, interval)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(in_channels * interval[-1], hidden_features)
+        self.gtheta = GTheta([in_channels * interval[-1]] + hidden_features)
 
-    def forward(self, input):
+    def forward(self, x):
         """
         Args:
-            input: Tensor of shape [batch_size, C, H, W]
+            x: Tensor of shape [batch_size, C, H, W]
 
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        ec = self.ec_layer(input)
-        ec = self.flatten(ec)   # shape: [batch_size, (num_channels * T)]
-        output = self.gtheta_layer(ec)
-        return output
-    
-    @staticmethod
-    def _make_gtheta_layer(in_features, hidden_features):
-        """
-        Args:
-            in_features:
-            hidden_features:
-        """
-        features = [in_features] + hidden_features
-        num_layers = len(hidden_features)
-        layer_list = []
-        for i in range(num_layers):
-            layer_list.append(nn.Linear(features[i], features[i+1]))
-            layer_list.append(nn.ReLU())
-        return nn.Sequential(*layer_list)
+        ec = self.flatten(self.ec_layer(x)) # shape: [batch_size, (C * T)]
+        return self.gtheta(ec)

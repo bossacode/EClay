@@ -65,6 +65,33 @@ class CubPL2d(nn.Module):
         return pl
 
 
+class GTheta(nn.Module):
+    def __init__(self, num_features=[128, 32]):
+        """
+        Args:
+            features (list, optional): List containing the size of each layer. Defaults to [128, 32].
+        """
+        super().__init__()
+        self.gtheta = self._make_gtheta_layer(num_features)
+
+    def forward(self, x):
+        return self.gtheta(x)
+
+    @staticmethod
+    def _make_gtheta_layer(features):
+        """
+        Args:
+            in_features:
+            hidden_features:
+        """
+        num_layers = len(features) - 1
+        layer_list = []
+        for i in range(num_layers):
+            layer_list.append(nn.Linear(features[i], features[i+1]))
+            layer_list.append(nn.ReLU())
+        return nn.Sequential(*layer_list)
+
+
 class PLLay(nn.Module):
     def __init__(self, superlevel=False, tseq=[0, 7, 32], K_max=2, dimensions=[0, 1], in_channels=1, hidden_features=[32]):
         """
@@ -79,7 +106,7 @@ class PLLay(nn.Module):
         super().__init__()
         self.pl_layer = CubPL2d(superlevel, tseq, K_max, dimensions, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta_layer = self._make_gtheta_layer(in_channels * len(dimensions) * K_max * tseq[-1], hidden_features)
+        self.gtheta = GTheta([in_channels * len(dimensions) * K_max* tseq[-1]] + hidden_features)
 
     def forward(self, input):
         """
@@ -89,25 +116,9 @@ class PLLay(nn.Module):
         Returns:
             output: Tensor of shape [batch_size, out_features]
         """
-        pl = self.pl_layer(input)
-        pl = self.flatten(pl)   # shape: [batch_size, (num_channels * len_dim * K_max * T)]
-        output = self.gtheta_layer(pl)
-        return output
-    
-    @staticmethod
-    def _make_gtheta_layer(in_features, hidden_features):
-        """
-        Args:
-            in_features:
-            hidden_features:
-        """
-        features = [in_features] + hidden_features
-        num_layers = len(hidden_features)
-        layer_list = []
-        for i in range(num_layers):
-            layer_list.append(nn.Linear(features[i], features[i+1]))
-            layer_list.append(nn.ReLU())
-        return nn.Sequential(*layer_list)
+        pl = self.flatten(self.pl_layer(input)) # shape: [batch_size, (C * len_dim * K_max * T)]
+        return self.gtheta(pl)
+
 
 
 # class AdPLCustomGrad(torch.autograd.Function):
