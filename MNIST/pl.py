@@ -65,7 +65,7 @@ class CubPL2d(nn.Module):
         return pl
 
 
-class GTheta(nn.Module):
+class GThetaPL(nn.Module):
     def __init__(self, num_features=[128, 32]):
         """
         Args:
@@ -106,7 +106,7 @@ class PLLay(nn.Module):
         super().__init__()
         self.pl_layer = CubPL2d(superlevel, tseq, K_max, dimensions, in_channels)
         self.flatten = nn.Flatten()
-        self.gtheta = GTheta([in_channels * len(dimensions) * K_max* tseq[-1]] + hidden_features)
+        self.gtheta = GThetaPL([in_channels * len(dimensions) * K_max * tseq[-1]] + hidden_features)
 
     def forward(self, input):
         """

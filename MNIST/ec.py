@@ -322,7 +322,7 @@ class CubECC2d(nn.Module):
         return dimension.flatten()
 
 
-class GTheta(nn.Module):
+class GThetaEC(nn.Module):
     def __init__(self, num_features=[32, 32]):
         """
         Args:
@@ -362,7 +362,7 @@ class ECLay(nn.Module):
         super().__init__()
         self.ec_layer = CubECC2d(as_vertices, sublevel, size, interval)
         self.flatten = nn.Flatten()
-        self.gtheta = GTheta([in_channels * interval[-1]] + hidden_features)
+        self.gtheta = GThetaEC([in_channels * interval[-1]] + hidden_features)
 
     def forward(self, x):
         """
