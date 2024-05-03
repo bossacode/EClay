@@ -10,25 +10,16 @@ model_params:
   # as_vertices: True
   as_vertices: False
   hidden_features:
-  # - 64
   - 32
   in_channels: 1
-  interval_1:
-  - 0
-  - 7
-  - 32
-  interval_2:
-  - 1
-  - 8
-  - 32
-  interval_3:
-  - -8
+  interval:
+  - -7
   - 0
   - 32
   num_classes: 10
   size:
   - 28
   - 28
-  sublevel: True
+  sublevel: False
 sch_patience: 10
 threshold: 0.001
