@@ -8,7 +8,7 @@ from scipy.stats import norm
 # import matplotlib.pyplot as plt
 
 
-class EccGrad(Function):
+class ECCGrad(Function):
     @staticmethod
     def forward(ctx, x, func, resolution, impulse):
         """_summary_
@@ -60,7 +60,7 @@ class EccGrad(Function):
         return grad_input, None, None, None
 
 
-class CubEcc2d(nn.Module):
+class CubECC2d(nn.Module):
     def __init__(self, as_vertices=True, sublevel=True, size=[28, 28], interval=[0, 7, 32]):
         """_summary_
 
@@ -91,7 +91,7 @@ class CubEcc2d(nn.Module):
         Returns:
             torch.Tensor: Tensor of shape [B, C, T]
         """
-        return EccGrad.apply(x, self.cal_ecc, self.resolution, self.impulse)
+        return ECCGrad.apply(x, self.cal_ecc, self.resolution, self.impulse)
 
     
     def _cal_ecc_vtx(self, x, backprop):
@@ -333,7 +333,7 @@ class ECLay(nn.Module):
             hidden_features (list, optional): _description_. Defaults to [64, 32].
         """
         super().__init__()
-        self.ec_layer = CubEcc2d(as_vertices, sublevel, size, interval)
+        self.ec_layer = CubECC2d(as_vertices, sublevel, size, interval)
         self.flatten = nn.Flatten()
         self.gtheta_layer = self._make_gtheta_layer(in_channels * interval[-1], hidden_features)
 

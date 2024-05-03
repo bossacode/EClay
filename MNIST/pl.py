@@ -5,7 +5,7 @@ from torch_topological.nn import CubicalComplex
 # import numpy as np
 
 
-class PL(nn.Module):
+class CubPL2d(nn.Module):
     def __init__(self, superlevel=False, tseq=[0, 7, 32], K_max=2, dimensions=[0,1], in_channels=1):
         """_summary_
 
@@ -77,7 +77,7 @@ class PLLay(nn.Module):
             hidden_features: List containing the dimension of fc layers
         """
         super().__init__()
-        self.pl_layer = PL(superlevel, tseq, K_max, dimensions, in_channels)
+        self.pl_layer = CubPL2d(superlevel, tseq, K_max, dimensions, in_channels)
         self.flatten = nn.Flatten()
         self.gtheta_layer = self._make_gtheta_layer(in_channels * len(dimensions) * K_max * tseq[-1], hidden_features)
 
