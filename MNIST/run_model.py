@@ -40,7 +40,8 @@ if __name__ == "__main__":
 
     wandb.login()
     for n_train in n_train_list:
-        project = f"NewMNIST{n_train}_" + args.model    # used as project name in wandb
+        project = f"MNIST_data_" + args.model    # used as project name in wandb
+        # project = f"MNIST_noise_" + args.model    # used as project name in wandb
         print("-"*30)
         print(f"Number of training data: {n_train}")
         print("-"*30)
@@ -61,7 +62,8 @@ if __name__ == "__main__":
                 
                 dir_path = f"./dataset/processed/data_{n_train}/noise_{noise_prob}/" # directory path to data
                 weight_path = weight_dir + f"sim{n_sim}.pt"                     # file path to save trained weights
-                group = noise_prob                                              # used for grouping experiments in wandb
+                # group = noise_prob                                              # used for grouping experiments in wandb
+                group = str(n_train)
                 job_type = f"sim{n_sim}"                                        # used for specifying runs in wandb        
                 
                 train_test_wandb(models[args.model], config, dir_path, weight_path, True, False, project, group, job_type)
