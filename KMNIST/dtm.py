@@ -3,27 +3,25 @@ import torch.nn as nn
 
 
 def make_grid(lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28]):
-    """
-    Creates a tensor of 2D grid points.
-    Grid points have one-to-one correspondence with input pixel values that are flattened in row-major order.
+    """Creates a tensor of 2D grid points. Grid points have one-to-one correspondence with input pixel values that are flattened in row-major order.
 
     Args:
-        lims: list or tuple in the form of [[domain of H], [domain of W]]
-        size: list or tuple in the form of [H, W]
+        lims (list, optional): Nested list in the form of [[domain of H], [domain of W]]. Defaults to [[-0.5, 0.5], [-0.5, 0.5]].
+        size (list, optional): List in the form of [H, W]. Defaults to [28, 28].
+
     Returns:
-        grid: Tensor of shape [(H*W), 2]
+        _type_: _description_
     """
     assert len(size) == 2 and len(lims) == len(size)
-    expansions = [torch.linspace(end, start, steps) if i == 0 else torch.linspace(start, end, steps) for i, ((start, end), steps) in enumerate(zip(lims, size))]
-    grid = torch.index_select(torch.cartesian_prod(*expansions),
-                        dim=1,
-                        index=torch.tensor([1,0]))
+    x_seq = torch.linspace(start=lims[0][0], end=lims[0][1], steps=size[0])
+    y_seq = torch.linspace(start=lims[1][1], end=lims[1][0], steps=size[1])
+    x_coord, y_coord = torch.meshgrid(x_seq, y_seq, indexing="xy")
+    grid = torch.concat([x_coord.reshape(-1, 1), y_coord.reshape(-1, 1)], dim=1)
     return grid
 
 
 def cal_dist(grid, r=2):
-    """
-    Calculate distance between all cooridnate points on grid.
+    """Calculate distance between all cooridnate points on grid.
 
     Args:
         grid: Tensor of shape [(H*W), 2]
@@ -92,7 +90,7 @@ def dtm_using_knn(knn_dist, knn_index, input, bound, r=2):
 
 
 class DTMLayer(nn.Module):
-    def __init__(self, m0=0.05, lims=[[1,28], [1,28]], size=[28, 28], r=2):
+    def __init__(self, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28], r=2):
         """
         Args:
             m0: 
