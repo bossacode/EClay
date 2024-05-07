@@ -81,7 +81,8 @@ class CubECC2d(nn.Module):
         self.cal_ecc = self._cal_ecc_vtx if self.as_vertices else self._cal_ecc_topdim
         self.idx_dict = {self._pix_i2vtx_i(i):i for i in range(size[0]*size[1])} if as_vertices else {self._pix_i2sq_i(i):i for i in range(size[0]*size[1])}
         self.impulse = norm(loc=0, scale=0.1).pdf(0)
-
+        self.lower_bound = self.t_min - 1/self.scale
+        
     def forward(self, x):
         """_summary_
 
@@ -118,6 +119,13 @@ class CubECC2d(nn.Module):
 
             # calculation of gradient only for inputs that require gradient
             if backprop:
+                ##################################
+                # should i skip 0 pixel?
+                # if filt == 0:
+                #     continue
+                ##################################
+                if filt < self.lower_bound:         # skip gradient calculation
+                    continue
                 # vertex
                 if dim == 0:
                     pix_i = self.idx_dict[i]        # index of the corresponding pixel in flattened original image
@@ -170,6 +178,13 @@ class CubECC2d(nn.Module):
 
             # calculation of gradient only for inputs that require gradient
             if backprop:
+                ##################################
+                # should i skip 0 pixel?
+                # if filt == 0:
+                #     continue
+                ##################################
+                if filt < self.lower_bound:
+                    continue
                 # square
                 if dim == 2:
                     pix_i = self.idx_dict[i]                    # index of the corresponding pixel in flattened original image
