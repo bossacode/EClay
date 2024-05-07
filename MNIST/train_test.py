@@ -70,7 +70,7 @@ def set_optimizer(model, config):
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
         lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, ECCNN_Topo):
+    elif isinstance(model, ECCNN_Topo) or isinstance(model, ECCNN_TopoDTM):
         optim = Adam([
             {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
             {"params": model.gtheta_1.parameters()},

@@ -19,6 +19,7 @@ args = parser.parse_args()
 models = {"CNN": CNN,
           "ECCNN": ECCNN,
           "ECCNN_Topo": ECCNN_Topo,
+          "ECCNN_TopoDTM": ECCNN_TopoDTM,
           "ECResNet": ECResNet,
           "PLCNN": PLCNN,
           "PLResNet": PLResNet,
