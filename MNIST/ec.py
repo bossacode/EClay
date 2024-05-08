@@ -119,11 +119,6 @@ class CubECC2d(nn.Module):
 
             # calculation of gradient only for inputs that require gradient
             if backprop:
-                ##################################
-                # should i skip 0 pixel?
-                # if filt == 0:
-                #     continue
-                ##################################
                 if filt < self.lower_bound:         # skip gradient calculation
                     continue
                 # vertex
@@ -178,11 +173,6 @@ class CubECC2d(nn.Module):
 
             # calculation of gradient only for inputs that require gradient
             if backprop:
-                ##################################
-                # should i skip 0 pixel?
-                # if filt == 0:
-                #     continue
-                ##################################
                 if filt < self.lower_bound:
                     continue
                 # square
