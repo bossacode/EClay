@@ -121,8 +121,8 @@ def generate_data(n_train, n_val, noise_prob_list):
 
     dtm02 = DTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
-    # ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
-    # pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
+    # ecc_dtm02 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
+    # pl_dtm02 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
     # use T-construction
     ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
     pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
