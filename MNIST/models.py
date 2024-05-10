@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from dtm import DTMLayer
-from ec import ECLay, GThetaEC
-from pl import PLLay, GThetaPL
+from eclay import ECLay, GThetaEC
+from pllay import PLLay, GThetaPL
 
 # CNN
 class CNN(nn.Module):
@@ -52,12 +52,12 @@ class ECCNN(CNN):
 
 
 class ECCNN_Topo(CNN):
-    def __init__(self, in_channels=1, num_classes=10,                                                               # CNN params
-                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-7, 0, 32], hidden_features=[32]):     # EC params
+    def __init__(self, in_channels=1, num_classes=10,                                                                   # CNN params
+                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-7, 0], steps=32, hidden_features=[32]):   # EC params
         super().__init__(in_channels, num_classes)
         self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
         self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, in_channels=1, hidden_features=[interval[-1]] + hidden_features)
+        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, steps, in_channels=1, hidden_features=[steps] + hidden_features)
         self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
                                 nn.ReLU(),
                                 nn.Linear(64, num_classes))
@@ -117,8 +117,8 @@ class ECCNN_TopoDTM(CNN):
 class PLCNN(CNN):
     def __init__(self, in_channels=1, num_classes=10, hidden_features=[32]):
         super().__init__(in_channels, num_classes)
-        self.gtheta_1 = GThetaEC(num_features=[128] + hidden_features)
-        self.gtheta_2 = GThetaEC(num_features=[192] + hidden_features)
+        self.gtheta_1 = GThetaPL(num_features=[128] + hidden_features)
+        self.gtheta_2 = GThetaPL(num_features=[192] + hidden_features)
         self.fc = nn.Sequential(nn.Linear(784 + 2*hidden_features[-1], 64),
                                 nn.ReLU(),
                                 nn.Linear(64, num_classes))
