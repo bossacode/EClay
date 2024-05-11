@@ -366,7 +366,7 @@ class GThetaEC(nn.Module):
 
 
 class ECLay(nn.Module):
-    def __init__(self, as_vertices=True, sublevel=True, size=[28, 28], interval=[0.03, 0.34], steps=32, in_channels=1, hidden_features=[32], scale=0.1,):
+    def __init__(self, as_vertices=True, sublevel=True, size=[28, 28], interval=[0.03, 0.34], steps=32, in_channels=1, hidden_features=[32], scale=0.1):
         """_summary_
 
         Args:
