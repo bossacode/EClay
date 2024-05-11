@@ -82,36 +82,36 @@ class ECCNN_Topo(CNN):
         return x
 
 
-# class ECCNN_TopoDTM(CNN):
-#     def __init__(self, in_channels=1, num_classes=10,                                                               # CNN params
-#                  as_vertices=False, sublevel=True, size=[28, 28], interval=[-7, 0, 32], hidden_features=[32]):     # EC params
-#         super().__init__(in_channels, num_classes)
-#         self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
-#         self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-#         self.dtm = DTMLayer(m0=0.05)
-#         self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, in_channels=1, hidden_features=[interval[-1]] + hidden_features)
-#         self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
-#                                 nn.ReLU(),
-#                                 nn.Linear(64, num_classes))
+class ECCNN_TopoDTM(CNN):
+    def __init__(self, in_channels=1, num_classes=10,                                                               # CNN params
+                 as_vertices=False, sublevel=True, size=[28, 28], interval=[-7, 0, 32], hidden_features=[32]):     # EC params
+        super().__init__(in_channels, num_classes)
+        self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
+        self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
+        self.dtm = DTMLayer(m0=0.05)
+        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, in_channels=1, hidden_features=[interval[-1]] + hidden_features)
+        self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
+                                nn.ReLU(),
+                                nn.Linear(64, num_classes))
 
-#     def forward(self, x):
-#         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-#         # CNN
-#         x_1 = self.conv_layer(x)
+    def forward(self, x):
+        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
+        # CNN
+        x_1 = self.conv_layer(x)
         
-#         # EC Layer 1
-#         x_2 = self.gtheta_1(self.flatten(ecc_dtm005))
+        # EC Layer 1
+        x_2 = self.gtheta_1(self.flatten(ecc_dtm005))
 
-#         # EC Layer 2
-#         x_3 = self.gtheta_2(self.flatten(ecc_dtm02))
+        # EC Layer 2
+        x_3 = self.gtheta_2(self.flatten(ecc_dtm02))
 
-#         # EC Layer 3
-#         x_4 = self.topo_layer_3(self.dtm(x_1))
+        # EC Layer 3
+        x_4 = self.topo_layer_3(self.dtm(x_1))
 
-#         # FC Layer
-#         x = torch.concat((self.flatten(x_1), x_2, x_3, x_4), dim=-1)
-#         x = self.fc(x)
-#         return x
+        # FC Layer
+        x = torch.concat((self.flatten(x_1), x_2, x_3, x_4), dim=-1)
+        x = self.fc(x)
+        return x
 
 
 class PLCNN(CNN):
