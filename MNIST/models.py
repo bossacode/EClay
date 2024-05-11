@@ -52,12 +52,12 @@ class ECCNN(CNN):
 
 
 class ECCNN_Topo(CNN):
-    def __init__(self, in_channels=1, num_classes=10,                                                                   # CNN params
-                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-7, 0], steps=32, hidden_features=[32]):   # EC params
+    def __init__(self, in_channels=1, num_classes=10,                                                                               # CNN params
+                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-7, 0], steps=32, hidden_features=[32], scale=0.1):    # EC params
         super().__init__(in_channels, num_classes)
         self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
         self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, steps, in_channels, hidden_features, scale=0.1)
+        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, steps, in_channels, hidden_features, scale=scale)
         self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
                                 nn.ReLU(),
                                 nn.Linear(64, num_classes))
