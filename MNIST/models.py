@@ -157,10 +157,10 @@ class PLCNN_Topo(CNN):
         x_1 = self.conv_layer(x)
         
         # EC Layer 1
-        x_2 = self.gtheta_1(self.flatten(ecc_dtm005))
+        x_2 = self.gtheta_1(self.flatten(pl_dtm005))
 
         # EC Layer 2
-        x_3 = self.gtheta_2(self.flatten(ecc_dtm02))
+        x_3 = self.gtheta_2(self.flatten(pl_dtm02))
 
         # EC Layer 3
         x_4 = self.topo_layer_3(x_1)
