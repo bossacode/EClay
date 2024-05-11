@@ -4,21 +4,21 @@ es_patience: 25
 factor: 0.1
 lr_conv: 0.0001
 lr_fc: 0.0001
-lr_topo: 0.0005
-lr_topo_2: 0.005
+lr_topo: 0.1
+lr_topo_2: 0.001
 model_params:
   as_vertices: False
+  dimensions:
+  - 0
+  - 1
   hidden_features:
   - 32
   in_channels: 1
   interval:
   - -7
   - 0
+  K_max: 2
   num_classes: 10
-  size:
-  - 28
-  - 28
-  scale: 0.1
   steps: 32
   sublevel: False
 sch_patience: 10
