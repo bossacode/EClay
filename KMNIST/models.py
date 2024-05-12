@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from dtm import DTMLayer
+from dtm import WeigthedDTMLayer
 from eclay import ECLay, GThetaEC
 from pllay import PLLay, GThetaPL
 

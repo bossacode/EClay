@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from dtm import DTMLayer
+from dtm import WeightedDTMLayer
 from eclay import ECLay, GThetaEC
 from pllay import PLLay, GThetaPL
 
@@ -88,7 +88,7 @@ class ECCNN_TopoDTM(CNN):
         super().__init__(in_channels, num_classes)
         self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
         self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-        self.dtm = DTMLayer(m0=0.05)
+        self.dtm = WeightedDTMLayer(m0=0.05)
         self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, in_channels=1, hidden_features=[interval[-1]] + hidden_features)
         self.fc = nn.Sequential(nn.Linear(784 + 3*hidden_features[-1], 64),
                                 nn.ReLU(),
@@ -263,9 +263,9 @@ class ECResNet(ResNet):
                  tseq_2=[1, 8, 32],                                                                             # EC params 2
                  m0_1=0.05, m0_2=0.2, **kwargs):                                                                # DTM params
         super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
-        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.dtm_1 = WeightedDTMLayer(m0=m0_1, **kwargs)
         self.topo_layer_1 = ECLay(False, tseq_1, in_channels, hidden_features)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.dtm_2 = WeightedDTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = ECLay(False, tseq_2, in_channels, hidden_features)
         # self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
@@ -296,9 +296,9 @@ class PLResNet(ResNet):
                  tseq_2=[1, 8, 32], K_max_2=3,                                                                  # PL params 2
                  m0_1=0.05, m0_2=0.2, **kwargs):                                                                # DTM params
         super().__init__(in_channels, block, block_cfg, filter_cfg, num_classes)
-        self.dtm_1 = DTMLayer(m0=m0_1, **kwargs)
+        self.dtm_1 = WeightedDTMLayer(m0=m0_1, **kwargs)
         self.topo_layer_1 = PLLay(False, tseq_1, K_max_1, dimensions, in_channels, hidden_features)
-        self.dtm_2 = DTMLayer(m0=m0_2, **kwargs)
+        self.dtm_2 = WeightedDTMLayer(m0=m0_2, **kwargs)
         self.topo_layer_2 = PLLay(False, tseq_2, K_max_2, dimensions, in_channels, hidden_features)
         # self.fc = nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], num_classes)
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),

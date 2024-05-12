@@ -3,14 +3,14 @@ import torch.nn as nn
 
 
 def make_grid(lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28]):
-    """Creates a tensor of 2D grid points. Grid points have one-to-one correspondence with input pixel values that are flattened in row-major order.
+    """Creates a tensor of 2D grid points. Grid points have one-to-one correspondence with image pixels flattened in row-major order.
 
     Args:
-        lims (list, optional): Nested list in the form of [[domain of H], [domain of W]]. Defaults to [[-0.5, 0.5], [-0.5, 0.5]].
-        size (list, optional): List in the form of [H, W]. Defaults to [28, 28].
+        lims (list, optional): Domain of x & y axis. Defaults to [[-0.5, 0.5], [-0.5, 0.5]].
+        size (list, optional): Number of discretized points for x & y axis. Defaults to [28, 28].
 
     Returns:
-        _type_: _description_
+        grid (torch.Tensor): Grid coordinates. Tensor of shape [(H*W), 2].
     """
     assert len(size) == 2 and len(lims) == len(size)
     x_seq = torch.linspace(start=lims[0][0], end=lims[0][1], steps=size[0])
@@ -21,111 +21,107 @@ def make_grid(lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28]):
 
 
 def cal_dist(grid, r=2):
-    """Calculate distance between all cooridnate points on grid.
+    """Calculate distance between all grid cooridnates.
 
     Args:
-        grid: Tensor of shape [(H*W), 2]
-        r:
+        grid (torch.Tensor): Grid coordinates. Tensor of shape [(H*W), D].
+        r (int, optional): r-norm. Defaults to 2.
+    
     Returns:
-        distance: Tensor of shape [(H*W), (H*W)]
+        dist (torch.Tensor): Distance between all grid coordinates. Tensor of shape [(H*W), (H*W)].
     """
-    X = grid.unsqueeze(1)
-    Y = grid.unsqueeze(0)
+    X = grid.unsqueeze(1)   # shape: [(H*W), 1, D]
+    Y = grid.unsqueeze(0)   # shape: [1, (H*W), D]
     if r == 2:
-        dist = torch.sqrt(torch.sum((X - Y)**2, -1))
+        dist = torch.sqrt(torch.sum((X - Y)**2, dim=-1))    # shape: [(H*W), (H*W)]
     elif r == 1:
-        dist = torch.sum(torch.abs(X - Y), -1)
+        dist = torch.sum(torch.abs(X - Y), dim=-1)
     else:
-        dist = torch.pow(torch.sum((X - Y)**r, -1), 1/r)
+        dist = torch.pow(torch.sum((X - Y)**r, dim=-1), 1/r)
     return dist
 
 
-def dtm_using_knn(knn_dist, knn_index, input, bound, r=2):
-    """
-    Weighted DTM using KNN.
+def weighted_dtm_using_knn(knn_dist, knn_index, weight, bound, r=2):
+    """Weighted DTM using KNN.
 
     Args:
-        knn_dist: Tensor of shape [(H*W), max_k]
-        knn_index: Tensor of shape [(H*W), max_k]
-        input: Tensor of shape [batch_size, C, (H*W)]         # grad
-        bound: Tensor of shape [batch_size, C, 1]             # grad
-        r: Int r-Norm
+        knn_dist (torch.Tensor): Distance to max_k-nearest points for each grid coordinate. Tensor of shape [(H*W), max_k].
+        knn_index (torch.Tensor): Index of max_k-nearest points in knn_dist. Tensor of shape [(H*W), max_k].
+        weight (torch.Tensor): Weight used for DTM. Tensor of shape [B, C, (H*W)].
+        bound (torch.Tensor): Weight bound that corresponds to m0*sum({Wi: i=1...n}) for each data. Tensor of shape [B, C, 1].
+        r (int, optional): r-norm. Defaults to 2.
 
     Returns:
-        dtm_val: Tensor of shape [batch_size, C, (H*W)]
+        dtm_val (torch.Tensor): DTM value. Tensor of shape [B, C, (H*W)].
     """
-    batch_size = input.shape[0]
-    C = input.shape[1]
-    HW = input.shape[-1]
+    B, C, HW = weight.shape
     
-    input_temp = input.unsqueeze(2).expand(-1, -1, HW, -1)                  # shape: [batch_size, C, (H*W), (H*W)]
-    knn_index = knn_index.view(1, 1, HW, -1).expand(batch_size, C, -1, -1)  # shape: [batch_size, C, (H*W), k]
-    knn_weight = torch.gather(input_temp, -1, knn_index)                    # shape: [batch_size, C, (H*W), k]    
+    weight_temp = weight.unsqueeze(2).expand(-1, -1, HW, -1)            # shape: [B, C, (H*W), (H*W)]
+    knn_index = knn_index.view(1, 1, HW, -1).expand(B, C, -1, -1)       # shape: [B, C, (H*W), max_k]
+    knn_weight = torch.gather(weight_temp, dim=-1, index=knn_index)     # shape: [B, C, (H*W), max_k]    
 
-    # finding k's s.t. sum({Wi: Wi in (k-1)-NN}) < m0*sum({Wi: i=1...n}) <= sum({Wi: Wi in k-NN})
-    cum_knn_weight = knn_weight.cumsum(-1)                                  # shape: [batch_size, C, (H*W), k]
-    bound = bound.unsqueeze(-1)                                             # shape: [batch_size, C, 1, 1]
-    k = torch.searchsorted(cum_knn_weight, bound.repeat(1, 1, HW, 1))       # shape: [batch_size, C, (H*W), 1]
+    # finding k's s.t. sum({Wi: Wi in (k-1)-NN}) < bound <= sum({Wi: Wi in k-NN}) for each data
+    cum_knn_weight = torch.cumsum(knn_weight, dim=-1)                   # shape: [B, C, (H*W), max_k]
+    bound = bound.unsqueeze(-1)                                         # shape: [B, C, 1, 1]
+    k = torch.searchsorted(cum_knn_weight, bound.repeat(1, 1, HW, 1))   # shape: [B, C, (H*W), 1]
     
     # prevent index out of bounds error when some values of k_index equal HW
     if (k == HW).any():
         k[k == HW] -= 1
 
     if r == 2:
-        r_dist = knn_dist.square().view(1, 1, HW, -1).expand(batch_size, C, -1, -1) # shape: [batch_size, C, (H*W), k]
-        cum_dist = torch.cumsum(r_dist * knn_weight, -1)                            # shape: [batch_size, C, (H*W), k]
-        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)     # shape: [batch_size, C, (H*W), 1]
+        r_dist = knn_dist.square().view(1, 1, HW, -1).expand(B, C, -1, -1)                  # shape: [B, C, (H*W), max_k]
+        cum_dist = torch.cumsum(r_dist * knn_weight, dim=-1)                                # shape: [B, C, (H*W), max_k]
+        dtm_val = torch.gather(cum_dist + r_dist*(bound - cum_knn_weight), dim=-1, index=k) # shape: [B, C, (H*W), 1]
         dtm_val = torch.sqrt(dtm_val/bound)
     elif r == 1:
-        r_dist = knn_dist.view(1, 1, HW, -1).expand(batch_size, C, -1, -1)
-        cum_dist = torch.cumsum(r_dist * knn_weight, -1)
-        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)
+        r_dist = knn_dist.view(1, 1, HW, -1).expand(B, C, -1, -1)
+        cum_dist = torch.cumsum(r_dist * knn_weight, dim=-1)
+        dtm_val = torch.gather(cum_dist + r_dist*(bound - cum_knn_weight), dim=-1, index=k)
         dtm_val = dtm_val/bound
     else:
-        r_dist = knn_dist.pow(r).view(1, 1, HW, -1).expand(batch_size, C, -1, -1)
-        cum_dist = torch.cumsum(r_dist * knn_weight, -1)
-        dtm_val = torch.gather(cum_dist + r_dist*(bound-cum_knn_weight), -1, k)
+        r_dist = knn_dist.pow(r).view(1, 1, HW, -1).expand(B, C, -1, -1)
+        cum_dist = torch.cumsum(r_dist * knn_weight, dim=-1)
+        dtm_val = torch.gather(cum_dist + r_dist*   (bound - cum_knn_weight), dim=-1, index=k)
         dtm_val = torch.pow(dtm_val/bound, 1/r)
     return dtm_val.squeeze(-1) 
 
 
-class DTMLayer(nn.Module):
+class WeightedDTMLayer(nn.Module):
     def __init__(self, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28], r=2):
         """
         Args:
-            m0: 
-            r: 
-            lims:
-            size: 
-            r:
+            m0 (float, optional): Parameter between 0 and 1 that controls locality. Defaults to 0.05.
+            lims (list, optional): Domain of x & y axis. Defaults to [[-0.5, 0.5], [-0.5, 0.5]].
+            size (list, optional): Number of discretized points for x & y axis. Defaults to [28, 28].
+            r (int, optional): r-norm. Defaults to 2.
         """
         super().__init__()
         grid = make_grid(lims, size)    # shape: [(H*W), 2]
-        self.dist = cal_dist(grid)
+        self.dist = cal_dist(grid)      # shape: [(H*W), (H*W)]
         self.m0 = m0
         self.r = r
         self.flatten = nn.Flatten(start_dim=-2)
         
-    def forward(self, input):
+    def forward(self, x):
         """
         Args:
-            input: Tensor of shape [batch_size, C, H, W]       # grad
+            x (torch.Tensor): Images. Tensor of shape [B, C, H, W].
 
         Returns:
-            dtm_val: Tensor of shape [batch_size, C, H, W]
+            dtm_val (torch.Tensor): DTM value. Tensor of shape [B, C, H, W].
         """
-        weight = self.flatten(input)                    # shape: [batch_size, C, (H*W)]
-        bound = self.m0 * weight.sum(-1, keepdim=True)  # shape: [batch_size, C, 1]
-        
-        # find max k among k's of each data s.t. sum({Wi: Wi in (k-1)-NN}) < m0*sum({Wi: i=1...n}) <= sum({Wi: Wi in k-NN})
-        with torch.no_grad():
-            sorted_weight = torch.sort(weight, -1).values   # shape: [batch_size, C, (H*W)]
-            sorted_weight_cumsum = sorted_weight.cumsum(-1) # shape: [batch_size, C, (H*W)]
-            max_k = torch.searchsorted(sorted_weight_cumsum, bound).max().item() + 1
-            if max_k > weight.shape[-1]:    # when max_k is out of range (max_k > H*W)
-                max_k = weight.shape[-1]
-
+        weight = self.flatten(x)                        # shape: [B, C, (H*W)]
+        bound = self.m0 * weight.sum(-1, keepdim=True)  # shape: [B, C, 1]
         self.dist = self.dist.to(weight.device)
+        # knn, find max k among k's of each data s.t. sum({Wi: Wi in (k-1)-NN}) < bound <= sum({Wi: Wi in k-NN})
+        with torch.no_grad():
+            sorted_weight = torch.sort(weight, dim=-1).values   # shape: [B, C, (H*W)]
+            sorted_weight_cumsum = sorted_weight.cumsum(dim=-1) # shape: [B, C, (H*W)]
+            max_k = torch.searchsorted(sorted_weight_cumsum, bound).max().item() + 1
+            if max_k > weight.shape[-1]:    # when max_k is out of range, i.e., max_k > (H*W)
+                max_k = weight.shape[-1]
         knn_dist, knn_index = self.dist.topk(max_k, largest=False, dim=-1)  # shape: [(H*W), max_k]
-        dtm_val = dtm_using_knn(knn_dist, knn_index, weight, bound, self.r) # shape: [batch_size, C, (H*W)]
-        return dtm_val.view(*input.shape)
+        # dtm
+        dtm_val = weighted_dtm_using_knn(knn_dist, knn_index, weight, bound, self.r) # shape: [B, C, (H*W)]
+        return dtm_val.view(*x.shape)

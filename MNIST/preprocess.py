@@ -3,7 +3,7 @@ from torch.distributions import Bernoulli
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
-from dtm import DTMLayer
+from dtm import WeightedDTMLayer
 from eclay import CubECC2d
 from pllay import CubPL2d
 import numpy as np
@@ -111,7 +111,7 @@ def generate_data(n_train, n_val, noise_prob_list):
     x_train_sampled, y_train_sampled = x_train[train_idx], y_train[train_idx]
     x_val_sampled, y_val_sampled = x_train[val_idx], y_train[val_idx]
 
-    dtm005 = DTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    dtm005 = WeightedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
     # ecc_dtm005 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
     # pl_dtm005 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
@@ -119,7 +119,7 @@ def generate_data(n_train, n_val, noise_prob_list):
     ecc_dtm005 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
     pl_dtm005 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
 
-    dtm02 = DTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    dtm02 = WeightedDTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
     # ecc_dtm02 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
     # pl_dtm02 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
