@@ -23,7 +23,7 @@ model_params:
   - 32
   in_channels: 1
   interval:
-  - -2.25
+  - -2
   - -0.27
   size:
   - 28
