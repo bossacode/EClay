@@ -5,7 +5,6 @@ factor: 0.1
 lr_conv: 0.0001
 lr_fc: 0.0001
 lr_topo: 0.0005
-# lr_topo: 0.001
 model_params:
   hidden_features:
   - 32

@@ -18,7 +18,8 @@ model_params:
   size:
   - 28
   - 28
-  scale: 0.1
+  # scale: 0.1
+  scale: 0.2
   steps: 32
   sublevel: False
 sch_patience: 10
