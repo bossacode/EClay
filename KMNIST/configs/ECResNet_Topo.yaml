@@ -2,8 +2,12 @@ batch_size: 16
 epochs: 1000
 es_patience: 25
 factor: 0.1
-lr: 0.005
+lr_fc: 0.001
+lr_res: 0.005
+lr_topo: 0.0001
+lr_topo2: 0.001
 model_params:
+  as_vertices: False
   block_cfg:
   - 2
   - 2
@@ -14,7 +18,19 @@ model_params:
   - 128
   - 256
   - 512
+  hidden_features:
+  - 64
+  - 32
   in_channels: 1
+  interval:
+  - -2.25
+  - -0.27
+  size:
+  - 28
+  - 28
   num_classes: 10
+  scale: 0.1
+  steps: 32
+  sublevel: False
 sch_patience: 10
 threshold: 0.001

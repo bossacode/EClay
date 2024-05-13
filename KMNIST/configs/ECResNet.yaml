@@ -6,12 +6,6 @@ lr_fc: 0.001
 lr_res: 0.005
 lr_topo: 0.0001
 model_params:
-  # block_cfg:
-  # - 2
-  # - 2
-  # filter_cfg:
-  # - 64
-  # - 128
   block_cfg:
   - 2
   - 2
