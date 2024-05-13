@@ -56,29 +56,27 @@ class EarlyStopping:
 def set_optimizer(model, config):
     if isinstance(model, ECResNet) or isinstance(model, PLResNet):
         optim = Adam([
-            {"params": model.res_layers.parameters(), "lr": config["lr_res"]},
-            {"params": model.gtheta_1.parameters()},
-            {"params": model.gtheta_2.parameters()},
+            {"params": model.res_layer_1.parameters()},
+            {"params": model.res_layer_2.parameters()},
+            {"params": model.res_layer_3.parameters()},
+            {"params": model.res_layer_4.parameters()},
+            {"params": model.gtheta_1.parameters(), "lr": config["lr_topo"]},
+            {"params": model.gtheta_2.parameters(), "lr": config["lr_topo"]},
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
-        lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, ECCNN) or isinstance(model, PLCNN):
+        lr=config["lr_res"], weight_decay=0)
+    elif isinstance(model, ECResNet_Topo) or isinstance(PLResNet_Topo):
         optim = Adam([
-            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
-            {"params": model.gtheta_1.parameters()},
-            {"params": model.gtheta_2.parameters()},
+            {"params": model.res_layer_1.parameters()},
+            {"params": model.res_layer_2.parameters()},
+            {"params": model.res_layer_3.parameters()},
+            {"params": model.res_layer_4.parameters()},
+            {"params": model.gtheta_1.parameters(), "lr": config["lr_topo"]},
+            {"params": model.gtheta_2.parameters(), "lr": config["lr_topo"]},
+            {'params': model.topo_layer_3.parameters(), "lr": config["lr_topo2"]},
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
-        lr=config["lr_topo"], weight_decay=0)
-    elif isinstance(model, ECCNN_Topo):
-        optim = Adam([
-            {"params": model.conv_layer.parameters(), "lr": config["lr_conv"]},
-            {"params": model.gtheta_1.parameters()},
-            {"params": model.gtheta_2.parameters()},
-            {"params": model.topo_layer_3.parameters(), "lr":config["lr_topo_2"]},
-            {"params": model.fc.parameters(), "lr": config["lr_fc"]}
-        ],
-        lr=config["lr_topo"], weight_decay=0)
+        lr=config["lr_res"], weight_decay=0)
     else:
         optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
     return optim

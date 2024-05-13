@@ -16,13 +16,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("model", help="Name of model to train")
 args = parser.parse_args()
 
-models = {"CNN": CNN,
-          "ECCNN": ECCNN,
-          "ECCNN_Topo": ECCNN_Topo,
-          "ECResNet": ECResNet,
-          "PLCNN": PLCNN,
+models = {"ECResNet": ECResNet,
+          "ECResNet_Topo": ECResNet_Topo,
           "PLResNet": PLResNet,
-          "ResNet": ResNet}
+          "PLResNet": PLResNet_Topo,
+          "ResNet": ResNet18}
 
 # load configuration file needed for training model
 with open(f"configs/{args.model}.yaml", "r") as f:
