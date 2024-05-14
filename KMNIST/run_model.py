@@ -19,7 +19,7 @@ args = parser.parse_args()
 models = {"ECResNet": ECResNet,
           "ECResNet_Topo": ECResNet_Topo,
           "PLResNet": PLResNet,
-          "PLResNet": PLResNet_Topo,
+          "PLResNet_Topo": PLResNet_Topo,
           "ResNet": ResNet18}
 
 # load configuration file needed for training model
