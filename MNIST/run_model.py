@@ -19,11 +19,8 @@ args = parser.parse_args()
 models = {"CNN": CNN,
           "ECCNN": ECCNN,
           "ECCNN_Topo": ECCNN_Topo,
-          "ECCNN_TopoDTM": ECCNN_TopoDTM,
-          "ECResNet": ECResNet,
           "PLCNN": PLCNN,
-          "PLResNet": PLResNet,
-          "ResNet": ResNet}
+          "PLCNN_Topo": PLCNN_Topo,}
 
 # load configuration file needed for training model
 with open(f"configs/{args.model}.yaml", "r") as f:
