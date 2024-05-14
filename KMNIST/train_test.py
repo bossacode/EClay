@@ -113,25 +113,26 @@ def eval(model, dataloader, loss_fn, device):
     """
     y_pred_list, y_true_list = [], []
     data_size = len(dataloader.dataset)
-    loss, correct = 0, 0
+    avg_loss, correct = 0, 0
     model.eval()
     with torch.no_grad():
         for *X, y in dataloader:
             X, y = [i.to(device) for i in X], y.to(device)
             y_pred = model(X)
-            loss += (loss_fn(y_pred, y).item() * len(y))
+            loss =loss_fn(y_pred, y)
+            avg_loss += (loss.item() * len(y))
             correct += (y_pred.argmax(1) == y).sum().item()
             y_pred_list.append(y_pred.argmax(1))
             y_true_list.append(y)
-    loss /= data_size
+    avg_loss /= data_size
     accuracy = (correct / data_size) * 100
-    print(f"Validation/Test error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    print(f"Validation/Test error:\n Accuracy: {(accuracy):>0.1f}%, Avg loss: {avg_loss:>8f} \n")
 
     predicted = torch.concat(y_pred_list).to("cpu")
     ground_truth = torch.concat(y_true_list).to("cpu")
     report = classification_report(ground_truth, predicted, zero_division="warn")
     print(report)
-    return loss, accuracy
+    return avg_loss, accuracy
 
 
 def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
