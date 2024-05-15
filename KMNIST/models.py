@@ -125,7 +125,7 @@ class ECResNet(ResNet18):
 
 class ECResNet_Topo(ResNet18):
     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,      # ResNet params
-                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-2.5, 0], steps=32, hidden_features=[64, 32], scale=0.1):  # EC params
+                 as_vertices=False, sublevel=False, size=[14, 14], interval=[-2.5, 0], steps=32, hidden_features=[64, 32], scale=0.1):  # EC params
         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
         self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
         self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
