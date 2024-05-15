@@ -5,7 +5,7 @@ factor: 0.1
 lr_fc: 0.001
 lr_res: 0.005
 lr_topo: 0.01
-lr_topo2: 0.001
+lr_topo2: 0.01
 model_params:
   as_vertices: False
   block_cfg:
@@ -26,11 +26,10 @@ model_params:
   - 32
   in_channels: 1
   interval:
-  - -2
-  - -0.27
+  - -2.5
+  - -0
   K_max: 2
   num_classes: 10
-  scale: 0.1
   steps: 32
   sublevel: False
 sch_patience: 10

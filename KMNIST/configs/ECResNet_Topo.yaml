@@ -23,11 +23,11 @@ model_params:
   - 32
   in_channels: 1
   interval:
-  - -1
-  - 1
+  - -2.5
+  - 0
   size:
-  - 28
-  - 28
+  - 14
+  - 14
   num_classes: 10
   scale: 0.2
   steps: 32
