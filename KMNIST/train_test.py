@@ -65,7 +65,7 @@ def set_optimizer(model, config):
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
         lr=config["lr_res"], weight_decay=0)
-    elif isinstance(model, ECResNet_Topo) or isinstance(model, PLResNet_Topo):
+    elif isinstance(model, ECResNet_Topo) or isinstance(model, PLResNet_Topo) or isinstance(model, ECResNet_Topo2):
         optim = Adam([
             {"params": model.res_layer_1.parameters()},
             {"params": model.res_layer_2.parameters()},

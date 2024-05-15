@@ -157,6 +157,40 @@ class ECResNet_Topo(ResNet18):
         return x
 
 
+class ECResNet_Topo2(ResNet18):
+    def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,      # ResNet params
+                 as_vertices=False, sublevel=False, size=[14, 14], interval=[-7, 0], steps=32, hidden_features=[64, 32], scale=0.1):    # EC params
+        super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+        self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
+        self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
+        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, steps, in_channels, hidden_features, scale=scale)
+        self.flatten = nn.Flatten()
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 3*hidden_features[-1], 64),
+                        nn.ReLU(),
+                        nn.Linear(64, num_classes))
+    
+    def forward(self, x):
+        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
+        # ResNet
+        x = self.res_layer_1(x)
+        x = self.res_layer_2(x)
+        # insert ECLay after second residual layer
+        x_2 = self.topo_layer_3(x.mean(dim=1, keepdim=True))
+        x = self.res_layer_3(x)
+        x = self.res_layer_4(x)
+        x_1 = self.avg_pool(x)
+
+        # EC Layer 1
+        x_3 = self.gtheta_1(self.flatten(ecc_dtm005))
+
+        # EC Layer 2
+        x_4 = self.gtheta_2(self.flatten(ecc_dtm02))
+
+        x = torch.concat((x_1, x_2, x_3, x_4), dim=-1)
+        x = self.fc(x)
+        return x
+
+
 class PLResNet(ResNet18):
     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
                  hidden_features=[64, 32]):

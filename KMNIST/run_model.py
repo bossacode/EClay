@@ -18,6 +18,7 @@ args = parser.parse_args()
 
 models = {"ECResNet": ECResNet,
           "ECResNet_Topo": ECResNet_Topo,
+          "ECResNet_Topo2": ECResNet_Topo2,
           "PLResNet": PLResNet,
           "PLResNet_Topo": PLResNet_Topo,
           "ResNet": ResNet18}
