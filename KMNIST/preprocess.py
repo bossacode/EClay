@@ -3,7 +3,7 @@ from torch.distributions import Bernoulli
 from torch.utils.data import DataLoader
 from torchvision.datasets import KMNIST
 from torchvision.transforms import ToTensor
-from dtm import WeigthedDTMLayer
+from dtm import WeightedDTMLayer
 from eclay import CubECC2d
 from pllay import CubPL2d
 import numpy as np
