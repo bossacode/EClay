@@ -2,7 +2,10 @@ import torch
 from torch.distributions import Bernoulli
 from torch.utils.data import DataLoader
 from torchvision.datasets import KMNIST
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, Compose
+from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.transforms import FaceToEdge
+import vedo
 from dtm import WeightedDTMLayer
 from eclay import CubECC2d
 from pllay import CubPL2d
@@ -78,13 +81,93 @@ def pl_transform(x, pl):
     return torch.concat(data_list, dim=0)
 
 
-def generate_data(n_train, n_val, noise_prob_list):
+###############used for creating dataset for DECT############################################
+class Mnist2Complex:
+    def __init__(self):
+        x_seq = torch.linspace(start=-0.5, end=0.5, steps=28)
+        y_seq = torch.linspace(start=0.5, end=-0.5, steps=28)
+        self.X, self.Y = torch.meshgrid(x_seq, y_seq, indexing="xy")
+
+    def __call__(self, data):
+        """_summary_
+
+        Args:
+            data (tuple): Tuple of tensors: (img, label)
+
+        Returns:
+            torch_geometric.data.data.Data: _description_
+        """
+        X, y = data
+        idx = torch.nonzero(X, as_tuple=True)
+        pc = torch.vstack([self.X[idx], self.Y[idx]]).T
+        dly = vedo.delaunay2d(pc, mode="xy", alpha=0.03).c("w").lc("o").lw(1)
+        return Data(x=torch.tensor(dly.vertices),
+                    face=torch.tensor(dly.cells, dtype=torch.float32).T,
+                    y=y)
+
+
+class CenterTransform:
+    def __call__(self, data):
+        """
+        Args:
+            data (torch_geometric.data.data.Data): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        data.x -= data.x.mean()
+        data.x /= data.x.pow(2).sum(axis=1).sqrt().max()
+        return data
+
+
+class MnistDataset(InMemoryDataset):
+    def __init__(self, img, label, noise_prob, data_size=None, mode="train", root="./dataset/", transform=None,
+                 pre_transform=Compose([Mnist2Complex(), FaceToEdge(remove_faces=False), CenterTransform()]), pre_filter=None):
+        """_summary_
+
+        Args:
+            img (torch.Tensor): Image data of shape [N, 1, 28, 28]
+            label (torch.Tensor): Label data of shape [N,]
+            mode (str, optional): _description_. Defaults to "train".
+            root (str, optional): _description_. Defaults to "./dataset/".
+            transform (_type_, optional): _description_. Defaults to None.
+            pre_transform (_type_, optional): _description_. Defaults to Compose([Mnist2PointCloud(), FaceToEdge(remove_faces=False), CenterTransform()]).
+            pre_filter (_type_, optional): _description_. Defaults to None.
+        """
+        self.X, self.y = img, label
+        self.noise_prob = noise_prob
+        self.data_size = data_size
+        self.mode = mode
+        self.noise_prob = noise_prob
+        super().__init__(root, transform, pre_transform, pre_filter)
+        self.load(self.processed_paths[0])
+
+    @property
+    def raw_file_names(self):
+        return ["MNIST"]
+
+    @property
+    def processed_file_names(self):
+        if self.mode == "train":
+            return [f"dect/noise_{str(int(self.noise_prob * 100)).zfill(2)}/data_{self.data_size}/train.pt"]
+        elif self.mode == "val":
+            return [f"dect/noise_{str(int(self.noise_prob * 100)).zfill(2)}/data_{self.data_size}/val.pt"]
+        else:
+            return [f"dect/noise_{str(int(self.noise_prob * 100)).zfill(2)}/test.pt"]
+
+    def process(self):
+        data_list = [self.pre_transform((img[0], lab)) for  img, lab in zip(self.X, self.y)]
+        self.save(data_list, self.processed_paths[0])
+###########################################################################################################################
+
+
+def generate_data(n_train_each_list, noise_prob_list, val_size):
     """_summary_
 
     Args:
-        n_train (int): Number of training data to sample for each label.
-        n_val (int): Number of validation data to sample for each label.
-        noise_prob_list (list): List containing noise probability.
+        n_train_each_list (list): Number of training data to sample for each label.
+        val_size (float): Size of validation set in proportion to train set.
+        noise_prob(list): Noise probabilities.
     """
     train_data = KMNIST(root="./dataset/raw/", train=True, download=True, transform=ToTensor())  # shape: (60000, 28, 28)
     test_data = KMNIST(root="./dataset/raw/", train=False, download=True, transform=ToTensor())  # shape: (10000, 28, 28)
@@ -95,82 +178,88 @@ def generate_data(n_train, n_val, noise_prob_list):
     x_test = (test_data.data / 255).unsqueeze(1)
     y_test = test_data.targets
 
-    # sample "n_train" training data and "n_val" validation data with equal proportion for each label
-    train_idx_list = []
-    val_idx_list = []
-    labels = y_train.unique()
-    n_train_per_label = int(n_train / len(labels))
-    n_val_per_label = int(n_val / len(labels))
-    for i in labels:
-        idx = torch.where(y_train == i)[0]
-        sampled_idx = np.random.choice(idx, size=n_train_per_label + n_val_per_label, replace=False)
-        train_idx_list.append(sampled_idx[:n_train_per_label])
-        val_idx_list.append(sampled_idx[n_train_per_label:])
-    train_idx = np.concatenate(train_idx_list)
-    val_idx = np.concatenate(val_idx_list)
-    x_train_sampled, y_train_sampled = x_train[train_idx], y_train[train_idx]
-    x_val_sampled, y_val_sampled = x_train[val_idx], y_train[val_idx]
-
-    dtm005 = WeigthedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    dtm005 = WeightedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
-    # ecc_dtm005 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.03, 0.34], steps=32)
-    # pl_dtm005 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.03, 0.34], steps=32, K_max=2, dimensions=[0, 1])
+    # ecc_dtm005 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
+    # pl_dtm005 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
     # use T-construction
-    ecc_dtm005 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.03, 0.34], steps=32)
-    pl_dtm005 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.03, 0.34], steps=32, K_max=2, dimensions=[0, 1])
+    ecc_dtm005 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
+    pl_dtm005 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
 
-    dtm02 = WeigthedDTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    dtm02 = WeightedDTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
-    # ecc_dtm02 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.06, 0.35], steps=32)
-    # pl_dtm02 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.06, 0.35], steps=32, K_max=2, dimensions=[0, 1])
+    # ecc_dtm02 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
+    # pl_dtm02 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
     # use T-construction
-    ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.35], steps=32)
-    pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.35], steps=32, K_max=2, dimensions=[0, 1])
+    ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
+    pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
 
-    for p in noise_prob_list:
-        dir_name = f"./dataset/processed/data_{n_train}/noise_" + str(int(p * 100)).zfill(2) + "/"
-        os.makedirs(dir_name, exist_ok=True)
-        
-        # train data
-        x_train_noise = add_noise(x_train_sampled, p)
-        x_train_dtm005 = dtm_transform(x_train_noise, dtm005)
-        ecc_train_dtm005 = ecc_transform(x_train_dtm005, ecc_dtm005)
-        pl_train_dtm005 = pl_transform(x_train_dtm005, pl_dtm005)
-        x_train_dtm02 = dtm_transform(x_train_noise, dtm02)
-        ecc_train_dtm02 = ecc_transform(x_train_dtm02, ecc_dtm02)
-        pl_train_dtm02 = pl_transform(x_train_dtm02, pl_dtm02)
-        
-        # validation data
-        x_val_noise = add_noise(x_val_sampled, p)
-        x_val_dtm005 = dtm_transform(x_val_noise, dtm005)
-        ecc_val_dtm005 = ecc_transform(x_val_dtm005, ecc_dtm005)
-        pl_val_dtm005 = pl_transform(x_val_dtm005, pl_dtm005)
-        x_val_dtm02 = dtm_transform(x_val_noise, dtm02)
-        ecc_val_dtm02 = ecc_transform(x_val_dtm02, ecc_dtm02)
-        pl_val_dtm02 = pl_transform(x_val_dtm02, pl_dtm02)
+    for noise_prob in noise_prob_list:
+        eclayr_dir = f"./dataset/processed/eclayr/noise_" + str(int(noise_prob * 100)).zfill(2) + "/"
+        dect_dir = f"./dataset/processed/dect/noise_" + str(int(noise_prob * 100)).zfill(2) + "/"
+        for n_train_each in n_train_each_list:
+            # sample "n_train_each" training data and "n_train_each * val_size" validation data for each label
+            n_val_each = int(n_train_each * val_size)
+            train_idx_list = []
+            val_idx_list = []
+            labels = y_train.unique()
+            for i in labels:
+                idx = torch.where(y_train == i)[0]
+                sampled_idx = np.random.choice(idx, size=n_train_each + n_val_each, replace=False)
+                train_idx_list.append(sampled_idx[:n_train_each])
+                val_idx_list.append(sampled_idx[n_train_each:])
+            train_idx = np.concatenate(train_idx_list)
+            val_idx = np.concatenate(val_idx_list)
+            x_tr_sampled, y_tr_sampled = x_train[train_idx], y_train[train_idx]
+            x_val_sampled, y_val_sampled = x_train[val_idx], y_train[val_idx]
+            
+            # train data
+            x_tr_noise = add_noise(x_tr_sampled, noise_prob)
+            x_tr_dtm005 = dtm_transform(x_tr_noise, dtm005)
+            ecc_tr_dtm005 = ecc_transform(x_tr_dtm005, ecc_dtm005)
+            pl_tr_dtm005 = pl_transform(x_tr_dtm005, pl_dtm005)
+            x_tr_dtm02 = dtm_transform(x_tr_noise, dtm02)
+            ecc_tr_dtm02 = ecc_transform(x_tr_dtm02, ecc_dtm02)
+            pl_tr_dtm02 = pl_transform(x_tr_dtm02, pl_dtm02)
+            
+            # validation data
+            x_val_noise = add_noise(x_val_sampled, noise_prob)
+            x_val_dtm005 = dtm_transform(x_val_noise, dtm005)
+            ecc_val_dtm005 = ecc_transform(x_val_dtm005, ecc_dtm005)
+            pl_val_dtm005 = pl_transform(x_val_dtm005, pl_dtm005)
+            x_val_dtm02 = dtm_transform(x_val_noise, dtm02)
+            ecc_val_dtm02 = ecc_transform(x_val_dtm02, ecc_dtm02)
+            pl_val_dtm02 = pl_transform(x_val_dtm02, pl_dtm02)
+
+            os.makedirs(eclayr_dir + f"data_{len(y_tr_sampled)}/", exist_ok=True)
+            torch.save((x_tr_noise, ecc_tr_dtm005, ecc_tr_dtm02, pl_tr_dtm005, pl_tr_dtm02, y_tr_sampled), eclayr_dir + f"data_{len(y_tr_sampled)}/train.pt")
+            torch.save((x_val_noise, ecc_val_dtm005, ecc_val_dtm02, pl_val_dtm005, pl_val_dtm02, y_val_sampled), eclayr_dir + f"data_{len(y_tr_sampled)}/val.pt")
+
+            # dect train and val data
+            os.makedirs(dect_dir + f"data_{len(y_tr_sampled)}/", exist_ok=True)
+            MnistDataset(x_tr_noise, y_tr_sampled, noise_prob, len(y_tr_sampled), mode="train")
+            MnistDataset(x_val_noise, y_val_sampled, noise_prob, len(y_tr_sampled), mode="val")
 
         # test data
-        x_test_noise = add_noise(x_test, p)
+        x_test_noise = add_noise(x_test, noise_prob)
         x_test_dtm005 = dtm_transform(x_test_noise, dtm005)
         ecc_test_dtm005 = ecc_transform(x_test_dtm005, ecc_dtm005)
         pl_test_dtm005 = pl_transform(x_test_dtm005, pl_dtm005)
         x_test_dtm02 = dtm_transform(x_test_noise, dtm02)
         ecc_test_dtm02 = ecc_transform(x_test_dtm02, ecc_dtm02)
         pl_test_dtm02 = pl_transform(x_test_dtm02, pl_dtm02)
+        torch.save((x_test_noise, ecc_test_dtm005, ecc_test_dtm02, pl_test_dtm005, pl_test_dtm02, y_test), eclayr_dir + "test.pt")
 
-        torch.save((x_train_noise, ecc_train_dtm005, ecc_train_dtm02, pl_train_dtm005, pl_train_dtm02, y_train_sampled), dir_name + "train.pt")
-        torch.save((x_val_noise, ecc_val_dtm005, ecc_val_dtm02, pl_val_dtm005, pl_val_dtm02, y_val_sampled), dir_name + "val.pt")
-        torch.save((x_test_noise, ecc_test_dtm005, ecc_test_dtm02, pl_test_dtm005, pl_test_dtm02, y_test), dir_name + "test.pt")
+        # dect test data
+        MnistDataset(x_tr_noise, y_tr_sampled, noise_prob, mode="test")
 
 
 if __name__ == "__main__":
+    n_train_each_list = [10, 30, 50, 70, 100]           # number of training samples for each label
+    # n_train_each_list = [10]
     noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25] # noise probabilities
     # noise_prob_list = [0.0]
-    n_train_list = [100, 300, 500, 700, 1000]           # number of training samples
-    # n_train_list = [100]
 
     torch.manual_seed(123)
     np.random.seed(123)
-    for n_train in n_train_list:
-        n_val = int(n_train * 0.4)  # number of validation samples
-        generate_data(n_train, n_val, noise_prob_list)
+    generate_data(n_train_each_list, noise_prob_list, val_size=0.4)

@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]
     noise_prob_list = [0.0]
     n_train_list = [100, 300, 500, 700, 1000]   # training sample size
-    # n_train_list = [500]
+    # n_train_list = [100]
 
     wandb.login()
     for n_train in n_train_list:
@@ -57,11 +57,12 @@ if __name__ == "__main__":
                 print(f"\nSimulation: [{n_sim} / {ntimes}]")
                 print("-"*30)
                 
-                dir_path = f"./dataset/processed/data_{n_train}/noise_{noise_prob}/" # directory path to data
+                test_dir = f"./dataset/processed/eclayr/noise_{noise_prob}/"    # directory path to test data
+                train_dir = test_dir + f"data_{n_train}/"                            # directory path to train data
                 weight_path = weight_dir + f"sim{n_sim}.pt"                     # file path to save trained weights
-                # group = noise_prob                                              # used for grouping experiments in wandb
+                # group = noise_prob                                            # used for grouping experiments in wandb
                 group = str(n_train)
                 job_type = f"sim{n_sim}"                                        # used for specifying runs in wandb        
                 
-                train_test_wandb(models[args.model], config, dir_path, weight_path, True, False, project, group, job_type)
-                # train_test(models[args.model], config, dir_path, weight_path)
+                # train_test_wandb(models[args.model], config, train_dir, test_dir, weight_path, True, False, project, group, job_type)
+                train_test(models[args.model], config, train_dir, test_dir, weight_path)

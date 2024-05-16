@@ -129,7 +129,7 @@ def eval(model, dataloader, loss_fn, device):
     return avg_loss, accuracy
 
 
-def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
+def train_val(MODEL, config, train_dir, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
     """_summary_
 
     Args:
@@ -141,8 +141,8 @@ def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_g
         log_grad (bool, optional): _description_. Defaults to False.
         val_metric (str, optional): _description_. Defaults to "loss".
     """
-    train_dataset = CustomDataset(dir_path + "train.pt")
-    val_dataset = CustomDataset(dir_path + "val.pt")
+    train_dataset = CustomDataset(train_dir + "train.pt")
+    val_dataset = CustomDataset(train_dir + "val.pt")
     train_dataloader = DataLoader(train_dataset, config["batch_size"], shuffle=True)
     val_dataloader = DataLoader(val_dataset, config["batch_size"])
 
@@ -183,7 +183,7 @@ def train_val(MODEL, config, dir_path, weight_path=None, log_metric=False, log_g
             model_state_dict = model.state_dict()
 
 
-def train_test(MODEL, config, dir_path, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
+def train_test(MODEL, config, train_dir, test_dir, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
     """_summary_
 
     Args:
@@ -195,9 +195,9 @@ def train_test(MODEL, config, dir_path, weight_path, log_metric=False, log_grad=
         log_grad (bool, optional): _description_. Defaults to False.
         val_metric (str, optional): _description_. Defaults to "loss".
     """
-    train_val(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
+    train_val(MODEL, config, train_dir, weight_path, log_metric, log_grad, val_metric)
 
-    test_dataset = CustomDataset(dir_path + "/test.pt")
+    test_dataset = CustomDataset(test_dir + "/test.pt")
     test_dataloader = DataLoader(test_dataset, config["batch_size"])
     loss_fn = nn.CrossEntropyLoss()
     
@@ -208,7 +208,7 @@ def train_test(MODEL, config, dir_path, weight_path, log_metric=False, log_grad=
     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(MODEL, config, dir_path, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+def train_val_wandb(MODEL, config, train_dir, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """_summary_
 
     Args:
@@ -225,10 +225,10 @@ def train_val_wandb(MODEL, config, dir_path, weight_path=None, log_metric=True, 
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_val(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
+        train_val(MODEL, config, train_dir, weight_path, log_metric, log_grad, val_metric)
 
 
-def train_test_wandb(MODEL, config, dir_path, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+def train_test_wandb(MODEL, config, train_dir, test_dir, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """_summary_
 
     Args:
@@ -245,4 +245,4 @@ def train_test_wandb(MODEL, config, dir_path, weight_path, log_metric=True, log_
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_test(MODEL, config, dir_path, weight_path, log_metric, log_grad, val_metric)
+        train_test(MODEL, config, train_dir, test_dir, weight_path, log_metric, log_grad, val_metric)
