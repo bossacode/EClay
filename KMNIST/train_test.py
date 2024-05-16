@@ -56,7 +56,7 @@ class EarlyStopping:
 def set_optimizer(model, config):
     if isinstance(model, ECResNet) or isinstance(model, PLResNet):
         optim = Adam([
-            {"params": model.conv_layer.parameters()},
+            # {"params": model.conv_layer.parameters()},
             {"params": model.res_layer_1.parameters()},
             {"params": model.res_layer_2.parameters()},
             {"params": model.res_layer_3.parameters()},
@@ -68,7 +68,7 @@ def set_optimizer(model, config):
         lr=config["lr_res"], weight_decay=0)
     elif isinstance(model, ECResNet_Topo) or isinstance(model, PLResNet_Topo):
         optim = Adam([
-            {"params": model.conv_layer.parameters()},
+            # {"params": model.conv_layer.parameters()},
             {"params": model.res_layer_1.parameters()},
             {"params": model.res_layer_2.parameters()},
             {"params": model.res_layer_3.parameters()},
