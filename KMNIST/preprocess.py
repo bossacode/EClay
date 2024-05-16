@@ -251,7 +251,7 @@ def generate_data(n_train_each_list, noise_prob_list, val_size):
         torch.save((x_test_noise, ecc_test_dtm005, ecc_test_dtm02, pl_test_dtm005, pl_test_dtm02, y_test), eclayr_dir + "test.pt")
 
         # dect test data
-        MnistDataset(x_tr_noise, y_tr_sampled, noise_prob, mode="test")
+        MnistDataset(x_test_noise, y_test, noise_prob, mode="test")
 
 
 if __name__ == "__main__":
