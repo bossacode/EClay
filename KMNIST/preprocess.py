@@ -102,7 +102,7 @@ class Mnist2Complex:
         pc = torch.vstack([self.X[idx], self.Y[idx]]).T
         dly = vedo.delaunay2d(pc, mode="xy", alpha=0.03).c("w").lc("o").lw(1)
         return Data(x=torch.tensor(dly.vertices),
-                    face=torch.tensor(dly.cells, dtype=torch.float32).T,
+                    face=torch.tensor(dly.cells, dtype=torch.long).T,
                     y=y)
 
 
