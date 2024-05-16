@@ -39,8 +39,10 @@ class ResNet18(nn.Module):
         """
         super().__init__()
         assert len(block_cfg) == len(filter_cfg)
-        self.layer_input_channels = in_channels # channel of input that goes into res_layer1, value changes in _make_layers
-        
+        self.res_in_channels = 64   # channel of input that goes into res_layer1, value changes in _make_layers
+        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, self.res_in_channels, kernel_size=3, stride=2, padding=1),
+                                        nn.BatchNorm2d(self.res_in_channels),
+                                        nn.ReLU())
         self.res_layer_1 = self._make_layers(block, filter_cfg[0], block_cfg[0], stride=1)
         self.res_layer_2 = self._make_layers(block, filter_cfg[1], block_cfg[1], stride=2)
         self.res_layer_3 = self._make_layers(block, filter_cfg[2], block_cfg[2], stride=2)
@@ -60,6 +62,7 @@ class ResNet18(nn.Module):
 
     def forward(self, x):
         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
+        x = self.conv_layer(x)
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
         x = self.res_layer_3(x)
@@ -75,20 +78,20 @@ class ResNet18(nn.Module):
             num_filters: Number of filters at the start of each layer
             num_blocks: Number of blocks for each layer
             stride:
-        """  
-        if stride != 1 or self.layer_input_channels != num_filters * block.expansion:
-            downsample = nn.Sequential(nn.Conv2d(self.layer_input_channels, num_filters*block.expansion, kernel_size=1, stride=stride),
+        """
+        if stride != 1 or self.res_in_channels != num_filters * block.expansion:
+            downsample = nn.Sequential(nn.Conv2d(self.res_in_channels, num_filters*block.expansion, kernel_size=1, stride=stride),
                                     nn.BatchNorm2d(num_filters, block.expansion))
         else:
             downsample = None
         
         block_list =[]
-        block_list.append(block(self.layer_input_channels, num_filters, stride, downsample))
+        block_list.append(block(self.res_in_channels, num_filters, stride, downsample))
 
-        self.layer_input_channels = num_filters * block.expansion
+        self.res_in_channels = num_filters * block.expansion
         
         for _ in range(1, num_blocks):
-            block_list.append(block(self.layer_input_channels, num_filters))
+            block_list.append(block(self.res_in_channels, num_filters))
         return nn.Sequential(*block_list)
 
 
@@ -106,6 +109,7 @@ class ECResNet(ResNet18):
     def forward(self, x):
         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
         # ResNet
+        x = self.conv_layer(x)
         x = self.res_layer_1(x)
         x = self.res_layer_2(x)
         x = self.res_layer_3(x)
@@ -138,11 +142,14 @@ class ECResNet_Topo(ResNet18):
     def forward(self, x):
         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
         # ResNet
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-
-        x_2 = self.topo_layer_3(x.mean(dim=1, keepdim=True))    # insert ECLay after first second layer
+        x = self.conv_layer(x)
         
+        # insert ECLay after conv layer
+        x_2 = x.mean(dim=1, keepdim=True)
+        x_2 = self.topo_layer_3(x_2)
+        
+        x = self.res_layer_1(x)
+        x = self.res_layer_2(x)        
         x = self.res_layer_3(x)
         x = self.res_layer_4(x)
         x_1 = self.avg_pool(x)
