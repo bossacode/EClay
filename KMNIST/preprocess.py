@@ -183,16 +183,16 @@ def generate_data(n_train_each_list, noise_prob_list, val_size):
     # ecc_dtm005 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
     # pl_dtm005 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
     # use T-construction
-    ecc_dtm005 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.02, 0.28], steps=32)
-    pl_dtm005 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.02, 0.28], steps=32, K_max=2, dimensions=[0, 1])
+    ecc_dtm005 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.03, 0.34], steps=32)
+    pl_dtm005 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.03, 0.34], steps=32, K_max=2, dimensions=[0, 1])
 
     dtm02 = WeightedDTMLayer(m0=0.2, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     # use V-construction
     # ecc_dtm02 = CubECC2d(as_vertices=True, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
     # pl_dtm02 = CubPL2d(as_vertices=True, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
     # use T-construction
-    ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.29], steps=32)
-    pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.29], steps=32, K_max=3, dimensions=[0, 1])
+    ecc_dtm02 = CubECC2d(as_vertices=False, sublevel=True, size=[28, 28], interval=[0.06, 0.35], steps=32)
+    pl_dtm02 = CubPL2d(as_vertices=False, sublevel=True, interval=[0.06, 0.35], steps=32, K_max=2, dimensions=[0, 1])
 
     for noise_prob in noise_prob_list:
         eclayr_dir = f"./dataset/processed/eclayr/noise_" + str(int(noise_prob * 100)).zfill(2) + "/"
