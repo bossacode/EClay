@@ -23,14 +23,14 @@ model_params:
   - 32
   in_channels: 1
   interval:
-  - -2.5
-  - 0
+  - 0.05
+  - 0.15
   size:
-  - 14
-  - 14
+  - 28
+  - 28
   num_classes: 10
   scale: 0.2
   steps: 32
-  sublevel: False
+  sublevel: True
 sch_patience: 10
 threshold: 0.001
