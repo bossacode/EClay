@@ -179,20 +179,18 @@ class PLCNN_Topo(CNN):
 #         return x
 
 
-class EctCnnModel(nn.Module):
-    def __init__(self, bump_steps, num_features, num_thetas, R, ect_type, device, fixed=False, num_classes=10):
-        super().__init__()
+class EctCnnModel(CNN):
+    def __init__(self, in_channels=1, num_classes=32,
+                 bump_steps=32, num_features=3, num_thetas=32, R=1.1, ect_type="faces", device="cpu", fixed=False):
+        super().__init__(in_channels, num_classes)
         self.ectlayer = EctLayer(bump_steps, num_features, num_thetas, R, ect_type, device, fixed)
-        self.conv = nn.Sequential(nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),
-                                nn.ReLU(),
-                                nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1),
-                                nn.ReLU())
-        self.linear = nn.Sequential(nn.Linear(bump_steps*num_thetas, 64),
+        self.fc = nn.Sequential(nn.Linear(1024, 64),
                                     nn.ReLU(),
                                     nn.Linear(64, num_classes))
 
     def forward(self, batch):
         x = self.ectlayer(batch).unsqueeze(1)
-        x = self.conv(x).view(x.size(0), -1)
-        x = self.linear(x)
+        x = self.conv_layer(x)
+        x = self.flatten(x)
+        x = self.fc(x)
         return x
