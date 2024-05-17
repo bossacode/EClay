@@ -3,6 +3,8 @@ import torch.nn as nn
 from dtm import WeightedDTMLayer
 from eclay import ECLay, GThetaEC
 from pllay import PLLay, GThetaPL
+from dect import EctLayer
+
 
 # CNN
 class CNN(nn.Module):
@@ -12,6 +14,12 @@ class CNN(nn.Module):
                                         nn.ReLU(),
                                         nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1),
                                         nn.ReLU())
+        # self.conv_layer = nn.Sequential(nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
+        #                                 nn.ReLU(),
+        #                                 nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, stride=2, padding=1),
+        #                                 nn.ReLU(),
+        #                                 nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1),
+        #                                 nn.ReLU())
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(nn.Linear(784, 64),
                                 nn.ReLU(),
@@ -169,3 +177,22 @@ class PLCNN_Topo(CNN):
 #         x = torch.concat((self.flatten(x_1), x_2, x_3, x_4), dim=-1)
 #         x = self.fc(x)
 #         return x
+
+
+class EctCnnModel(nn.Module):
+    def __init__(self, bump_steps, num_features, num_thetas, R, ect_type, device, fixed=False, num_classes=10):
+        super().__init__()
+        self.ectlayer = EctLayer(bump_steps, num_features, num_thetas, R, ect_type, device, fixed)
+        self.conv = nn.Sequential(nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),
+                                nn.ReLU(),
+                                nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1),
+                                nn.ReLU())
+        self.linear = nn.Sequential(nn.Linear(bump_steps*num_thetas, 64),
+                                    nn.ReLU(),
+                                    nn.Linear(64, num_classes))
+
+    def forward(self, batch):
+        x = self.ectlayer(batch).unsqueeze(1)
+        x = self.conv(x).view(x.size(0), -1)
+        x = self.linear(x)
+        return x

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.metrics import classification_report
@@ -129,7 +129,7 @@ def eval(model, dataloader, loss_fn, device):
     return avg_loss, accuracy
 
 
-def train_val(MODEL, config, train_dir, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
+def train_val(MODEL, config, train_dl, val_dl, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
     """_summary_
 
     Args:
@@ -141,17 +141,11 @@ def train_val(MODEL, config, train_dir, weight_path=None, log_metric=False, log_
         log_grad (bool, optional): _description_. Defaults to False.
         val_metric (str, optional): _description_. Defaults to "loss".
     """
-    train_dataset = CustomDataset(train_dir + "train.pt")
-    val_dataset = CustomDataset(train_dir + "val.pt")
-    train_dataloader = DataLoader(train_dataset, config["batch_size"], shuffle=True)
-    val_dataloader = DataLoader(val_dataset, config["batch_size"])
-
     model = MODEL(**config["model_params"]).to(config["device"])
     loss_fn = nn.CrossEntropyLoss()
     optim  = set_optimizer(model, config)
     scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
                                   factor=config["factor"], patience=config["sch_patience"], threshold=config["threshold"], verbose=True)
-    
     es = EarlyStopping(config["es_patience"], config["threshold"], val_metric=val_metric)
 
     if log_grad:
@@ -162,8 +156,8 @@ def train_val(MODEL, config, train_dir, weight_path=None, log_metric=False, log_
         print(f"\nEpoch: [{n_epoch} / {config['epochs']}]")
         print("-"*30)
 
-        train_loss, train_acc = train(model, train_dataloader, loss_fn, optim, config["device"])
-        val_loss, val_acc = eval(model, val_dataloader, loss_fn, config["device"])
+        train_loss, train_acc = train(model, train_dl, loss_fn, optim, config["device"])
+        val_loss, val_acc = eval(model, val_dl, loss_fn, config["device"])
 
         scheduler.step(val_loss if val_metric == "loss" else val_acc)
 
@@ -183,7 +177,7 @@ def train_val(MODEL, config, train_dir, weight_path=None, log_metric=False, log_
             model_state_dict = model.state_dict()
 
 
-def train_test(MODEL, config, train_dir, test_dir, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
+def train_test(MODEL, config, train_dl, val_dl, test_dl, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
     """_summary_
 
     Args:
@@ -195,20 +189,17 @@ def train_test(MODEL, config, train_dir, test_dir, weight_path, log_metric=False
         log_grad (bool, optional): _description_. Defaults to False.
         val_metric (str, optional): _description_. Defaults to "loss".
     """
-    train_val(MODEL, config, train_dir, weight_path, log_metric, log_grad, val_metric)
-
-    test_dataset = CustomDataset(test_dir + "/test.pt")
-    test_dataloader = DataLoader(test_dataset, config["batch_size"])
-    loss_fn = nn.CrossEntropyLoss()
+    train_val(MODEL, config, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
     
     # test
+    loss_fn = nn.CrossEntropyLoss()
     model = MODEL(**config["model_params"]).to(config["device"])
     model.load_state_dict(torch.load(weight_path, map_location=config["device"]))
-    test_loss, test_acc = eval(model, test_dataloader, loss_fn, config["device"])
+    test_loss, test_acc = eval(model, test_dl, loss_fn, config["device"])
     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(MODEL, config, train_dir, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+def train_val_wandb(MODEL, config, train_dl, val_dl, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """_summary_
 
     Args:
@@ -225,10 +216,10 @@ def train_val_wandb(MODEL, config, train_dir, weight_path=None, log_metric=True,
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_val(MODEL, config, train_dir, weight_path, log_metric, log_grad, val_metric)
+        train_val(MODEL, config, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
 
 
-def train_test_wandb(MODEL, config, train_dir, test_dir, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
+def train_test_wandb(MODEL, config, train_dl, val_dl, test_dl, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, val_metric="loss"):
     """_summary_
 
     Args:
@@ -245,4 +236,4 @@ def train_test_wandb(MODEL, config, train_dir, test_dir, weight_path, log_metric
     """
     with wandb.init(config=config, project=project, group=group, job_type=job_type):
         config = wandb.config
-        train_test(MODEL, config, train_dir, test_dir, weight_path, log_metric, log_grad, val_metric)
+        train_test(MODEL, config, train_dl, val_dl, test_dl, weight_path, log_metric, log_grad, val_metric)
