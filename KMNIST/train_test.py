@@ -56,7 +56,6 @@ class EarlyStopping:
 def set_optimizer(model, config):
     if isinstance(model, ECResNet) or isinstance(model, PLResNet):
         optim = Adam([
-            # {"params": model.conv_layer.parameters()},
             {"params": model.res_layer_1.parameters()},
             {"params": model.res_layer_2.parameters()},
             {"params": model.res_layer_3.parameters()},
@@ -65,10 +64,9 @@ def set_optimizer(model, config):
             {"params": model.gtheta_2.parameters(), "lr": config["lr_topo"]},
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
-        lr=config["lr_res"], weight_decay=0)
+        lr=config["lr_res"], weight_decay=0.0001)
     elif isinstance(model, ECResNet_Topo) or isinstance(model, PLResNet_Topo):
         optim = Adam([
-            # {"params": model.conv_layer.parameters()},
             {"params": model.res_layer_1.parameters()},
             {"params": model.res_layer_2.parameters()},
             {"params": model.res_layer_3.parameters()},
@@ -78,9 +76,9 @@ def set_optimizer(model, config):
             {'params': model.topo_layer_3.parameters(), "lr": config["lr_topo2"]},
             {"params": model.fc.parameters(), "lr": config["lr_fc"]}
         ],
-        lr=config["lr_res"], weight_decay=0)
+        lr=config["lr_res"], weight_decay=0.0001)
     else:
-        optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0)
+        optim = Adam(model.parameters(), lr=config["lr"], weight_decay=0.0001)
     return optim
 
 
