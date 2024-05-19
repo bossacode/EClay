@@ -1,5 +1,5 @@
 import torch
-from preprocess import MnistDataset
+from preprocess import KmnistDataset
 from torch_geometric.loader import DataLoader
 import wandb
 import os
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     wandb.login()
     for n_train in n_train_list:
         project = f"KMNIST_data_DECT"    # used as project name in wandb
-        # project = f"MNIST_noise_DECT"   # used as project name in wandb
+        # project = f"KMNIST_noise_DECT"   # used as project name in wandb
         print("-"*30)
         print(f"Number of training data: {n_train}")
         print("-"*30)
@@ -55,11 +55,11 @@ if __name__ == "__main__":
                 group = str(n_train)
                 job_type = f"sim{n_sim}"                                        # used for specifying runs in wandb   
 
-                train_ds = MnistDataset(None, None, noise_prob=p, data_size=n_train, mode="train")
+                train_ds = KmnistDataset(None, None, noise_prob=p, data_size=n_train, mode="train")
                 train_dl = DataLoader(train_ds, config["batch_size"], shuffle=True)
-                val_ds = MnistDataset(None, None, noise_prob=p, data_size=n_train, mode="val")
+                val_ds = KmnistDataset(None, None, noise_prob=p, data_size=n_train, mode="val")
                 val_dl = DataLoader(val_ds, config["batch_size"])
-                test_ds = MnistDataset(None, None, noise_prob=p, data_size=n_train, mode="test")
+                test_ds = KmnistDataset(None, None, noise_prob=p, data_size=n_train, mode="test")
                 test_dl = DataLoader(test_ds, config["batch_size"])     
                 
                 train_test_wandb(EctResNet, config, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type)

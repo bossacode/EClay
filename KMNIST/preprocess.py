@@ -82,7 +82,7 @@ def pl_transform(x, pl):
 
 
 ###############used for creating dataset for DECT############################################
-class Mnist2Complex:
+class Kmnist2Complex:
     def __init__(self):
         x_seq = torch.linspace(start=-0.5, end=0.5, steps=28)
         y_seq = torch.linspace(start=0.5, end=-0.5, steps=28)
@@ -120,9 +120,9 @@ class CenterTransform:
         return data
 
 
-class MnistDataset(InMemoryDataset):
+class KmnistDataset(InMemoryDataset):
     def __init__(self, img, label, noise_prob, data_size=None, mode="train", root="./dataset/", transform=None,
-                 pre_transform=Compose([Mnist2Complex(), FaceToEdge(remove_faces=False), CenterTransform()]), pre_filter=None):
+                 pre_transform=Compose([Kmnist2Complex(), FaceToEdge(remove_faces=False), CenterTransform()]), pre_filter=None):
         """_summary_
 
         Args:
@@ -237,8 +237,8 @@ def generate_data(n_train_each_list, noise_prob_list, val_size):
 
             # dect train and val data
             os.makedirs(dect_dir + f"data_{len(y_tr_sampled)}/", exist_ok=True)
-            MnistDataset(x_tr_noise, y_tr_sampled, noise_prob, len(y_tr_sampled), mode="train")
-            MnistDataset(x_val_noise, y_val_sampled, noise_prob, len(y_tr_sampled), mode="val")
+            KmnistDataset(x_tr_noise, y_tr_sampled, noise_prob, len(y_tr_sampled), mode="train")
+            KmnistDataset(x_val_noise, y_val_sampled, noise_prob, len(y_tr_sampled), mode="val")
 
         # test data
         x_test_noise = add_noise(x_test, noise_prob)
@@ -251,7 +251,7 @@ def generate_data(n_train_each_list, noise_prob_list, val_size):
         torch.save((x_test_noise, ecc_test_dtm005, ecc_test_dtm02, pl_test_dtm005, pl_test_dtm02, y_test), eclayr_dir + "test.pt")
 
         # dect test data
-        MnistDataset(x_test_noise, y_test, noise_prob, mode="test")
+        KmnistDataset(x_test_noise, y_test, noise_prob, mode="test")
 
 
 if __name__ == "__main__":
