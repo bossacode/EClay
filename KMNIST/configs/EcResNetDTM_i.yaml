@@ -6,7 +6,6 @@ lr: 0.005
 # lr_fc: 0.001
 # lr_res: 0.005
 # lr_topo: 0.0001
-# lr_topo2: 0.001
 model_params:
   # ResNet params
   in_channels: 1
@@ -21,23 +20,22 @@ model_params:
   - 128
   - 256
   - 512
-  #ECLayr params
+  # ECLayr params
   t_const: True
-  sublevel: False
-  size_1:
+  sublevel: True
+  size:
   - 28
   - 28
-  size_2:
-  - 14
-  - 14
-  interval:
-  - 0
-  - 1
+  interval_1:
+  - 0.03
+  - 0.34
+  interval_2:
+  - 0.06
+  - 0.35
   steps: 32
   gtheta_cfg:
   - 32
   - 64
   - 32
-  beta: 0.3
 sch_patience: 10
 threshold: 0.001

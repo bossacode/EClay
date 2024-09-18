@@ -1,9 +1,9 @@
+import sys
+sys.path.append("../")
 import torch
 import torch.nn as nn
-from dtm import WeightedDTMLayer
-from eclay import ECLay, GThetaEC
-from pllay import PLLay, GThetaPL
-from dect import EctLayer
+from eclayr.cubical import ECLayr
+from utils.dtm import WeightedDTMLayer
 
 
 # ResNet
@@ -24,7 +24,6 @@ class ResidualBlock(nn.Module):
         x = self.relu(x)
         x = self.conv_layer2(x)
         x = x + input if self.downsample is None else x + self.downsample(input)
-        x = self.relu(x)
         return x
 
 
@@ -40,7 +39,7 @@ class ResNet18(nn.Module):
         """
         super().__init__()
         assert len(block_cfg) == len(filter_cfg) == 4
-        self.res_in_channels = 1   # channel of input that goes into res_layer1, value changes in _make_layers
+        self.res_in_channels = in_channels  # channel of input that goes into res_layer1, value changes in _make_layers
 
         self.res_layer_1 = self._make_layers(block, filter_cfg[0], block_cfg[0], stride=1)
         self.res_layer_2 = self._make_layers(block, filter_cfg[1], block_cfg[1], stride=2)
@@ -50,6 +49,8 @@ class ResNet18(nn.Module):
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1], 64),
                                 nn.ReLU(),
                                 nn.Linear(64, num_classes))
+        self.relu = nn.ReLU()
+
         # weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -59,11 +60,11 @@ class ResNet18(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
+        x, x_dtm005, x_dtm02 = x
+        x = self.relu(self.res_layer_1(x))
+        x = self.relu(self.res_layer_2(x))
+        x = self.relu(self.res_layer_3(x))
+        x = self.relu(self.res_layer_4(x))
         x = self.avg_pool(x)
         output = self.fc(x)
         return output
@@ -88,167 +89,258 @@ class ResNet18(nn.Module):
         self.res_in_channels = num_filters * block.expansion
         
         for _ in range(1, num_blocks):
+            block_list.append(nn.ReLU())
             block_list.append(block(self.res_in_channels, num_filters))
         return nn.Sequential(*block_list)
 
 
-class ECResNet(ResNet18):
+# ResNet + ECLayr
+class EcResNet_i(ResNet18):
     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
-                 hidden_features=[64, 32]):
+                 gtheta_cfg=[32, 64, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
-        self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
-        self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
+        self.ecc = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + gtheta_cfg[-1], 64),
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
-        self.flatten = nn.Flatten()
     
     def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-        # ResNet
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
-        x_1 = self.avg_pool(x)
-        # ECC layer 1
-        x_2 = self.gtheta_1(self.flatten(ecc_dtm005))
-        # ECC layer 2
-        x_3 = self.gtheta_2(self.flatten(ecc_dtm02))
-        # FC layer
-        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x, ecc_dtm005, ecc_dtm02 = x
+        
+        x_1 = self.relu(self.ecc(x))        # ECLayr 1
+
+        x = self.relu(self.res_layer_1(x))  # ResNet
+        x = self.relu(self.res_layer_2(x))
+        x = self.relu(self.res_layer_3(x))
+        x = self.relu(self.res_layer_4(x))
+        x_2 = self.avg_pool(x)
+
+        x = torch.concat((x_1, x_2), dim=-1)
         x = self.fc(x)
         return x
 
 
-class PLResNet(ResNet18):
-    def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
-                 hidden_features=[64, 32]):
-        super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
-        self.gtheta_1 = GThetaPL(num_features=[128] + hidden_features)
-        self.gtheta_2 = GThetaPL(num_features=[128] + hidden_features)
-        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
-        self.flatten = nn.Flatten()
-
-    
-    def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-        # ResNet
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
-        x_1 = self.avg_pool(x)
-        # PL layer 1
-        x_2 = self.gtheta_1(self.flatten(pl_dtm005))
-        # PL layer 2
-        x_3 = self.gtheta_2(self.flatten(pl_dtm02))
-        # FC layer
-        x = torch.concat((x_1, x_2, x_3), dim=-1)
-        x = self.fc(x)
-        return x
-
-
-class ECResNet_Topo(ResNet18):
+# Cnn + ECLayr + ECLayr after Residual Layers
+class EcResNet(ResNet18):
     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,      # ResNet params
-                 as_vertices=False, sublevel=False, size=[28, 28], interval=[-2.5, 0], steps=32, hidden_features=[64, 32], scale=0.1):  # EC params
+                 size_1=[28, 28],
+                 size_2=[14, 14],
+                 gtheta_cfg=[32, 64, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
-        self.gtheta_1 = GThetaEC(num_features=[32] + hidden_features)
-        self.gtheta_2 = GThetaEC(num_features=[32] + hidden_features)
-        self.topo_layer_3 = ECLay(as_vertices, sublevel, size, interval, steps, in_channels, hidden_features, scale=scale)
-        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 3*hidden_features[-1], 64),
+        self.ecc_1 = ECLayr(size=size_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(size=size_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_3 = ECLayr(size=size_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 3*gtheta_cfg[-1], 64),
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
-        self.flatten = nn.Flatten()
-        self.dtm = WeightedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
     
     def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-        # ResNet
-        x = self.res_layer_1(x)
+        x, x_dtm005, x_dtm02 = x
+        
+        x_1 = self.relu(self.ecc_1(x))      # ECLayr 1
+
+        x = self.res_layer_1(x)             # ResNet
 
         # insert ECLay after first res layer
         x_2 = x.mean(dim=1, keepdim=True)
-        # if ((x_2 == 0).sum(dim=(2,3)) / (x.shape[2]*x.shape[3]) >= 0.90).any(): # to avoid dtm grad resulting in nan when input is very sparse
-        #     x_2 = self.topo_layer_3(x_2)
-        # else:
-        #     x_2 = self.dtm(x_2)
-        #     x_2 = self.topo_layer_3(x_2)
-        x_2 = self.dtm(x_2)
-        x_2 = self.topo_layer_3(x_2)
+        x_2 = (x_2 - x_2.min()) / (x_2.max() - x_2.min())   # normalize x_1 between 0 and 1
+        x_2 = self.relu(self.ecc_2(x_2))    # ECLayr 2
 
-        x = self.res_layer_2(x)        
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
-        x_1 = self.avg_pool(x)
-        # EC layer 1
-        x_3 = self.gtheta_1(self.flatten(ecc_dtm005))
-        # EC layer 2
-        x_4 = self.gtheta_2(self.flatten(ecc_dtm02))
-        # FC layer
+        x = self.res_layer_2(self.relu(x))
+
+        # insert ECLay after second res layer
+        x_3 = x.mean(dim=1, keepdim=True)
+        x_3 = (x_3 - x_3.min()) / (x_3.max() - x_3.min())   # normalize x_1 between 0 and 1
+        x_3 = self.relu(self.ecc_3(x_3))    # ECLayr 3
+
+        x = self.relu(self.res_layer_3(self.relu(x)))
+        x = self.relu(self.res_layer_4(x))
+        x_4 = self.avg_pool(x)
+        
         x = torch.concat((x_1, x_2, x_3, x_4), dim=-1)
         x = self.fc(x)
         return x
-    
 
-class PLResNet_Topo(ResNet18):
-    def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,          # ResNet params
-                 as_vertices=False, sublevel=False, interval=[-2.5, 0], steps=32, K_max=2, dimensions=[0, 1], hidden_features=[64, 32]):    # PL params
-        super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
-        self.gtheta_1 = GThetaPL(num_features=[128] + hidden_features)
-        self.gtheta_2 = GThetaPL(num_features=[128] + hidden_features)
-        self.topo_layer_3 = PLLay(as_vertices, sublevel, interval, steps, K_max, dimensions, in_channels, hidden_features)
-        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 3*hidden_features[-1], 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
-        self.flatten = nn.Flatten()
-        self.dtm = WeightedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
-    
-    def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
-        # ResNet
-        x = self.res_layer_1(x)
 
-        # insert PLLay after first res layer
-        x_2 = x.mean(dim=1, keepdim=True)
-        # if ((x_2 == 0).sum(dim=(2,3)) / (x.shape[2]*x.shape[3]) >= 0.90).any(): # to avoid dtm grad resulting in nan when input is very sparse
-        #     print("no dtm", x_2.min().item(), x_2.max().item())
-        #     x_2 = self.topo_layer_3(x_2)
-        # else:
-        #     x_2 = self.dtm(x_2)
-        #     print("dtm", x_2.min().item(), x_2.max().item())
-        #     x_2 = self.topo_layer_3(x_2)
-        x_2 = self.dtm(x_2)
-        x_2 = self.topo_layer_3(x_2)
-
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
-        x_1 = self.avg_pool(x)
-        # Pl layer 1
-        x_3 = self.gtheta_1(self.flatten(pl_dtm005))
-        # PL layer 2
-        x_4 = self.gtheta_2(self.flatten(pl_dtm02))
-        # FC layer
-        x = torch.concat((x_1, x_2, x_3, x_4), dim=-1)
-        x = self.fc(x)
-        return x
-    
-
-class EctResNet(ResNet18):
+# ResNet + DTM ECLayr
+class EcResNetDTM_i(ResNet18):
     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
-                 bump_steps=32, num_features=3, num_thetas=32, R=1.1, ect_type="faces", device="cpu", fixed=False):                 # ECT params
+                 interval_1 = [0.03, 0.34],
+                 interval_2 = [0.06, 0.35],
+                 gtheta_cfg=[32, 64, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
-        self.ectlayer = EctLayer(bump_steps, num_features, num_thetas, R, ect_type, device, fixed)
-
+        self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*gtheta_cfg[-1], 64),
+                        nn.ReLU(),
+                        nn.Linear(64, num_classes))
+    
     def forward(self, x):
-        x = self.ectlayer(x).unsqueeze(1)
-        x = self.res_layer_1(x)
-        x = self.res_layer_2(x)
-        x = self.res_layer_3(x)
-        x = self.res_layer_4(x)
-        x = self.avg_pool(x)
-        output = self.fc(x)
-        return output
+        x, x_dtm005, x_dtm02 = x
+        
+        x_1 = self.relu(self.ecc_1(x_dtm005))   # ECLayr 1
+        x_2 = self.relu(self.ecc_2(x_dtm02))    # ECLayr 2
+
+        x = self.relu(self.res_layer_1(x))  # ResNet
+        x = self.relu(self.res_layer_2(x))
+        x = self.relu(self.res_layer_3(x))
+        x = self.relu(self.res_layer_4(x))
+        x_3 = self.avg_pool(x)
+
+        x = torch.concat((x_1, x_2, x_3), dim=-1)
+        x = self.fc(x)
+        return x
+
+
+class EcResNetDTM(ResNet18):
+    def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,      # ResNet params
+                 sublevel_1=True, size_1=[28, 28], interval_1 = [0.03, 0.34],   # DTM 1
+                 interval_2 = [0.06, 0.35],                                     # DTM 2
+                 sublevel_2 = False, interval_3 = [0, 1],                       # after layer 1
+                 size_2=[14, 14],                                               # after layer 2
+                 gtheta_cfg=[32, 64, 32], *args, **kwargs):
+        super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+        self.ecc_1 = ECLayr(sublevel=sublevel_1, size=size_1, interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(sublevel=sublevel_1, size=size_1, interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_3 = ECLayr(sublevel=sublevel_2, size=size_1, interval=interval_3, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(sublevel=sublevel_2, size=size_2, interval=interval_3, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 4*gtheta_cfg[-1], 64),
+                        nn.ReLU(),
+                        nn.Linear(64, num_classes))
+    
+    def forward(self, x):
+        x, x_dtm005, x_dtm02 = x
+        
+        x_1 = self.relu(self.ecc_1(x_dtm005))   # ECLayr 1
+        x_2 = self.relu(self.ecc_2(x_dtm02))    # ECLayr 2
+
+        x = self.res_layer_1(x)             # ResNet
+
+        # insert ECLay after first res layer
+        x_3 = x.mean(dim=1, keepdim=True)
+        x_3 = (x_3 - x_3.min()) / (x_3.max() - x_3.min())   # normalize x_1 between 0 and 1
+        x_3 = self.relu(self.ecc_2(x_3))    # ECLayr 2
+
+        x = self.res_layer_2(self.relu(x))
+
+        # insert ECLay after second res layer
+        x_4 = x.mean(dim=1, keepdim=True)
+        x_4 = (x_4 - x_4.min()) / (x_4.max() - x_4.min())   # normalize x_1 between 0 and 1
+        x_4 = self.relu(self.ecc_3(x_4))    # ECLayr 3
+
+        x = self.relu(self.res_layer_3(self.relu(x)))
+        x = self.relu(self.res_layer_4(x))
+        x_5 = self.avg_pool(x)
+        
+        x = torch.concat((x_1, x_2, x_3, x_4, x_5), dim=-1)
+        x = self.fc(x)
+        return x
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class PLResNet(ResNet18):
+#     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
+#                  hidden_features=[64, 32]):
+#         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+#         self.gtheta_1 = GThetaPL(num_features=[128] + hidden_features)
+#         self.gtheta_2 = GThetaPL(num_features=[128] + hidden_features)
+#         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*hidden_features[-1], 64),
+#                                 nn.ReLU(),
+#                                 nn.Linear(64, num_classes))
+#         self.flatten = nn.Flatten()
+
+    
+#     def forward(self, x):
+#         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
+#         # ResNet
+#         x = self.res_layer_1(x)
+#         x = self.res_layer_2(x)
+#         x = self.res_layer_3(x)
+#         x = self.res_layer_4(x)
+#         x_1 = self.avg_pool(x)
+#         # PL layer 1
+#         x_2 = self.gtheta_1(self.flatten(pl_dtm005))
+#         # PL layer 2
+#         x_3 = self.gtheta_2(self.flatten(pl_dtm02))
+#         # FC layer
+#         x = torch.concat((x_1, x_2, x_3), dim=-1)
+#         x = self.fc(x)
+#         return x
+
+# class PLResNet_Topo(ResNet18):
+#     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,          # ResNet params
+#                  as_vertices=False, sublevel=False, interval=[-2.5, 0], steps=32, K_max=2, dimensions=[0, 1], hidden_features=[64, 32]):    # PL params
+#         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+#         self.gtheta_1 = GThetaPL(num_features=[128] + hidden_features)
+#         self.gtheta_2 = GThetaPL(num_features=[128] + hidden_features)
+#         self.topo_layer_3 = PLLay(as_vertices, sublevel, interval, steps, K_max, dimensions, in_channels, hidden_features)
+#         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 3*hidden_features[-1], 64),
+#                                 nn.ReLU(),
+#                                 nn.Linear(64, num_classes))
+#         self.flatten = nn.Flatten()
+#         self.dtm = WeightedDTMLayer(m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    
+#     def forward(self, x):
+#         x, ecc_dtm005, ecc_dtm02, pl_dtm005, pl_dtm02 = x
+#         # ResNet
+#         x = self.res_layer_1(x)
+
+#         # insert PLLay after first res layer
+#         x_2 = x.mean(dim=1, keepdim=True)
+#         # if ((x_2 == 0).sum(dim=(2,3)) / (x.shape[2]*x.shape[3]) >= 0.90).any(): # to avoid dtm grad resulting in nan when input is very sparse
+#         #     print("no dtm", x_2.min().item(), x_2.max().item())
+#         #     x_2 = self.topo_layer_3(x_2)
+#         # else:
+#         #     x_2 = self.dtm(x_2)
+#         #     print("dtm", x_2.min().item(), x_2.max().item())
+#         #     x_2 = self.topo_layer_3(x_2)
+#         x_2 = self.dtm(x_2)
+#         x_2 = self.topo_layer_3(x_2)
+
+#         x = self.res_layer_2(x)
+#         x = self.res_layer_3(x)
+#         x = self.res_layer_4(x)
+#         x_1 = self.avg_pool(x)
+#         # Pl layer 1
+#         x_3 = self.gtheta_1(self.flatten(pl_dtm005))
+#         # PL layer 2
+#         x_4 = self.gtheta_2(self.flatten(pl_dtm02))
+#         # FC layer
+#         x = torch.concat((x_1, x_2, x_3, x_4), dim=-1)
+#         x = self.fc(x)
+#         return x
+    
+
+# class EctResNet(ResNet18):
+#     def __init__(self, in_channels=1, num_classes=10, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,  # ResNet params
+#                  bump_steps=32, num_features=3, num_thetas=32, R=1.1, ect_type="faces", device="cpu", fixed=False):                 # ECT params
+#         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+#         self.ectlayer = EctLayer(bump_steps, num_features, num_thetas, R, ect_type, device, fixed)
+
+#     def forward(self, x):
+#         x = self.ectlayer(x).unsqueeze(1)
+#         x = self.res_layer_1(x)
+#         x = self.res_layer_2(x)
+#         x = self.res_layer_3(x)
+#         x = self.res_layer_4(x)
+#         x = self.avg_pool(x)
+#         output = self.fc(x)
+#         return output

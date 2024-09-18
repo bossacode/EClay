@@ -1,11 +1,13 @@
+import sys
+sys.path.append("../")
 import torch
-from torch.utils.data import DataLoader
-from train_test import train_test_wandb, train_test, CustomDataset
+from torch.optim import Adam
 import os
 import wandb
 import argparse
 import yaml
-from models import *
+from utils.train import set_dataloader, train_test, train_test_wandb
+from models import ResNet18, EcResNet_i, EcResNet, EcResNetDTM_i, EcResNetDTM
 
 
 # for reproducibility (may degrade performance)
@@ -19,59 +21,86 @@ parser.add_argument("model", help="Name of model to train")
 args = parser.parse_args()
 
 
-models = {"ECResNet": ECResNet,
-          "ECResNet_Topo": ECResNet_Topo,
-          "PLResNet": PLResNet,
-          "PLResNet_Topo": PLResNet_Topo,
-          "ResNet": ResNet18}
+models = {
+    "ResNet": ResNet18,
+    "EcResNet_i": EcResNet_i,
+    "EcResNet": EcResNet,
+    "EcResNetDTM_i": EcResNetDTM_i,
+    "EcResNetDTM": EcResNetDTM
+    }
 
 
 # load configuration file needed for training model
 with open(f"configs/{args.model}.yaml", "r") as f:
-    config = yaml.load(f, yaml.FullLoader)
-config["device"] = "cuda" if torch.cuda.is_available() else "cpu"
+    cfg = yaml.load(f, yaml.FullLoader)
+cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 if __name__ == "__main__":
-    ntimes = 30  # number of simulations to run
-    # noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]
-    noise_prob_list = [0.0]
-    n_train_list = [100, 300, 500, 700, 1000]   # training sample size
-    # n_train_list = [100]
+    nsim = 10                                       # number of simulations to run
+    # train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
+    train_size_list = [500]
+    # cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
+    cn_prob_list = [0.15]
 
     wandb.login()
-    for n_train in n_train_list:
-        project = f"KMNIST_data_" + args.model    # used as project name in wandb
-        # project = f"KMNIST_noise_" + args.model    # used as project name in wandb
-        print("-"*30)
-        print(f"Number of training data: {n_train}")
-        print("-"*30)
-        # loop over data with different noise probability
-        for p in noise_prob_list:
-            noise_prob = str(int(p * 100)).zfill(2)
-            weight_dir = f"./saved_weights/data_{n_train}/{args.model}/{noise_prob}/"    # directory path to save trained weights
-            os.makedirs(weight_dir, exist_ok=True)
-            
-            print("-"*30)
-            print(f"Noise rate: {noise_prob}")
-            print("-"*30)
-            
-            # loop over number of simulations
-            for n_sim in range(1, ntimes+1):
-                print(f"\nSimulation: [{n_sim} / {ntimes}]")
-                print("-"*30)
-                
-                weight_path = weight_dir + f"sim{n_sim}.pt"                     # file path to save trained weights
-                # group = noise_prob                                            # used for grouping experiments in wandb
-                group = str(n_train)
-                job_type = f"sim{n_sim}"                                        # used for specifying runs in wandb
 
-                train_ds = CustomDataset(f"./dataset/processed/eclayr/noise_{noise_prob}/data_{n_train}/train.pt")
-                train_dl = DataLoader(train_ds, config["batch_size"], shuffle=True)
-                val_ds = CustomDataset(f"./dataset/processed/eclayr/noise_{noise_prob}/data_{n_train}/val.pt")
-                val_dl = DataLoader(val_ds, config["batch_size"])
-                test_ds = CustomDataset(f"./dataset/processed/eclayr/noise_{noise_prob}/test.pt")
-                test_dl = DataLoader(test_ds, config["batch_size"])
+    # loop over different training size
+    for train_size in train_size_list:
+        project = "KMNIST_data"      # used as project name in wandb
+        
+        print("-"*30)
+        print(f"Number of training data: {train_size}")
+        print("-"*30)
 
-                train_test_wandb(models[args.model], config, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type)
-                # train_test(models[args.model], config, train_dl, val_dl, test_dl, weight_path)
+        data_dir = "./dataset/processed/train_size/"                            # base directory path to where data is loaded
+        weight_dir = f"./saved_weights/{args.model}/train_size/{train_size}/"   # directory path to save trained weights
+        os.makedirs(weight_dir, exist_ok=True)
+        
+        # loop over number of simulations
+        for sim in range(1, nsim+1):
+            print(f"\nSimulation: [{sim} / {nsim}]")
+            print("-"*30)
+            
+            weight_path = weight_dir + f"sim{sim}.pt"   # file path to save trained weights
+            group = args.model                          # used for grouping experiments in wandb
+            job_type = str(train_size)                  # used for grouping experiments in wandb
+            name = f"sim{sim}"                          # used for specifying runs in wandb
+
+            train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{train_size}/train.pt", data_dir + f"{train_size}/val.pt", data_dir + "test.pt", cfg["batch_size"])
+
+            model = models[args.model](**cfg["model_params"]).to(cfg["device"])
+            optim = Adam(model.parameters(), lr=cfg["lr"])
+            train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
+            # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
+
+
+    # loop over different noise probability
+    for p in cn_prob_list:
+        project = "KMNIST_noise"     # used as project name in wandb
+
+        print("-"*30)
+        print(f"Corruption & noise rate: {p}")
+        print("-"*30)
+
+        prob = str(int(p * 100)).zfill(2)
+        data_dir = "./dataset/processed/cn_prob/"                       # base directory path to where data is loaded
+        weight_dir = f"./saved_weights/{args.model}/cn_prob/{prob}/"    # directory path to save trained weights
+        os.makedirs(weight_dir, exist_ok=True)
+        
+        # loop over number of simulations
+        for sim in range(1, nsim+1):
+            print(f"\nSimulation: [{sim} / {nsim}]")
+            print("-"*30)
+            
+            weight_path = weight_dir + f"sim{sim}.pt"   # file path to save trained weights
+            group = args.model                          # used for grouping experiments in wandb
+            job_type = prob                             # used for grouping experiments in wandb
+            name = f"sim{sim}"                          # used for specifying runs in wandb
+        
+            train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{prob}/train.pt", data_dir + f"{prob}/val.pt", data_dir + f"{prob}/test.pt", cfg["batch_size"])
+
+            model = models[args.model](**cfg["model_params"]).to(cfg["device"])
+            optim = Adam(model.parameters(), lr=cfg["lr"])
+            train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
+            # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
