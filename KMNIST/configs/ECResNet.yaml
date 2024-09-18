@@ -3,6 +3,7 @@ epochs: 1000
 es_patience: 25
 factor: 0.1
 lr: 0.005
+lr_topo: 0.0001
 # lr_fc: 0.001
 # lr_res: 0.005
 # lr_topo: 0.0001
