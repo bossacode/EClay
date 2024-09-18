@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 import math
-from eclayr.cubical.cython.ecc import EccBackbone
+from eclayr.cubical.cython_eclayr.ecc import EccBackbone
 
 
 class Ecc(Function):
