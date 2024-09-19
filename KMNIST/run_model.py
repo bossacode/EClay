@@ -49,10 +49,10 @@ def set_optimizer(model, cfg):
 
 if __name__ == "__main__":
     nsim = 10                                       # number of simulations to run
-    # train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
-    train_size_list = [500]
-    # cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
-    cn_prob_list = [0.15]
+    train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
+    # train_size_list = [500]
+    cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
+    # cn_prob_list = [0.15]
 
     wandb.login()
 
@@ -81,7 +81,8 @@ if __name__ == "__main__":
             train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{train_size}/train.pt", data_dir + f"{train_size}/val.pt", data_dir + "test.pt", cfg["batch_size"])
 
             model = models[args.model](**cfg["model_params"]).to(cfg["device"])
-            optim = Adam(model.parameters(), lr=cfg["lr"])
+            # optim = Adam(model.parameters(), lr=cfg["lr"])
+            optim = set_optimizer(model, cfg)
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
             # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
 
