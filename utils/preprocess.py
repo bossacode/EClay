@@ -3,6 +3,7 @@ from torch.distributions import Bernoulli
 from torch.utils.data import DataLoader
 from utils.dtm import WeightedDTMLayer, DTMLayer
 
+
 def corrupt_noise(x, p):
     """Replace pixels with random noise between 0 and 1 with probabilty p.
 
@@ -22,6 +23,15 @@ def corrupt_noise(x, p):
                             x_crpt)
     return x_crpt_noise
 
+
+def cn_transform(x, p):
+    data_list = []
+    dataloader = DataLoader(x, batch_size=64)
+    for data in dataloader:
+        data_list.append(corrupt_noise(data, p))
+    return torch.concat(data_list, dim=0)
+
+
 def dtm_transform(x, m0, lims, size, weighted=True):
     """Tranform data using DTM.
 
@@ -38,7 +48,7 @@ def dtm_transform(x, m0, lims, size, weighted=True):
         dtm = DTMLayer(m0, lims, size)
     
     data_list = []
-    dataloader = DataLoader(x, batch_size=32)
+    dataloader = DataLoader(x, batch_size=64)
     for data in dataloader:
         data_list.append(dtm(data))
     return torch.concat(data_list, dim=0)
