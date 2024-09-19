@@ -102,7 +102,7 @@ def gen_noise_data(cn_prob_list, dir_path):
 
 
 if __name__ == "__main__":
-    train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
+    train_size_list = [300, 500, 700, 1000, 10000]    # training sample sizes
     cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
     val_size=0.3                                    # proportion of validation split
 
