@@ -203,7 +203,7 @@ class EcResNetDTM(ResNet18):
         self.ecc_1 = ECLayr(sublevel=sublevel_1, size=size_1, interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.ecc_2 = ECLayr(sublevel=sublevel_1, size=size_1, interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.ecc_3 = ECLayr(sublevel=sublevel_2, size=size_1, interval=interval_3, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_1 = ECLayr(sublevel=sublevel_2, size=size_2, interval=interval_3, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_4 = ECLayr(sublevel=sublevel_2, size=size_2, interval=interval_3, gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 4*gtheta_cfg[-1], 64),
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
@@ -219,14 +219,14 @@ class EcResNetDTM(ResNet18):
         # insert ECLay after first res layer
         x_3 = x.mean(dim=1, keepdim=True)
         x_3 = (x_3 - x_3.min()) / (x_3.max() - x_3.min())   # normalize x_1 between 0 and 1
-        x_3 = self.relu(self.ecc_2(x_3))    # ECLayr 2
+        x_3 = self.relu(self.ecc_3(x_3))    # ECLayr 2
 
         x = self.res_layer_2(self.relu(x))
 
         # insert ECLay after second res layer
         x_4 = x.mean(dim=1, keepdim=True)
         x_4 = (x_4 - x_4.min()) / (x_4.max() - x_4.min())   # normalize x_1 between 0 and 1
-        x_4 = self.relu(self.ecc_3(x_4))    # ECLayr 3
+        x_4 = self.relu(self.ecc_4(x_4))    # ECLayr 3
 
         x = self.relu(self.res_layer_3(self.relu(x)))
         x = self.relu(self.res_layer_4(x))
