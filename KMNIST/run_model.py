@@ -48,9 +48,9 @@ def set_optimizer(model, cfg):
 
 
 if __name__ == "__main__":
-    nsim = 10                                       # number of simulations to run
-    train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
-    # train_size_list = [500]
+    nsim = 20                                       # number of simulations to run
+    train_size_list = [300, 500, 700, 1000]         # training sample sizes
+    # train_size_list = [700]
     cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
     # cn_prob_list = [0.15]
 
