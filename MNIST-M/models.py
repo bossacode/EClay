@@ -10,17 +10,17 @@ from utils.dtm import WeightedDTMLayer
 class Cnn(nn.Module):
     def __init__(self, in_channels=1, num_classes=10):
         super().__init__()
-        self.conv_1 = nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(in_channels, out_channels=64, kernel_size=3, stride=1, padding=0)
+        self.conv_2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=0)
+        self.conv_3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=0)
         # self.fc = nn.Sequential(
         #     nn.Linear(16*128, 256),
         #     nn.ReLU(),
         #     nn.Linear(256, num_classes)
         #     )
-        self.conv_4 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=0)
+        self.conv_4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=2, padding=0)
         self.fc = nn.Sequential(
-            nn.Linear(4 * 256, 256),
+            nn.Linear(4 * 512, 256),
             nn.ReLU(),
             nn.Linear(256, num_classes)
             )
@@ -31,14 +31,14 @@ class Cnn(nn.Module):
     def forward(self, x):
         x, x_dtm005, x_dtm02 = x
         x = self.conv_1(x)
-        x = self.relu(self.pool(x))
+        x = self.relu(x)
         x = self.conv_2(x)
-        x = self.relu(self.pool(x))
+        x = self.relu(x)
         x = self.conv_3(x)
-        x = self.relu(self.pool(x))
-        # x = self.flatten(x)
+        x = self.relu(x)
         x = self.conv_4(x)
-        x = self.flatten(self.relu(x))
+        x = self.relu(x)
+        x = self.flatten(x)
         x = self.fc(x)
         return x
 
@@ -48,9 +48,9 @@ class EcCnn_i(Cnn):
         super().__init__(in_channels, num_classes)
         self.ecc = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(9*128 + gtheta_cfg[-1], 256),
+            nn.Linear(4*256 + gtheta_cfg[-1], 128),
             nn.ReLU(),
-            nn.Linear(256, num_classes)
+            nn.Linear(128, num_classes)
             )
 
     def forward(self, x):
@@ -59,14 +59,14 @@ class EcCnn_i(Cnn):
         x_1 = self.relu(self.ecc(x))         # ECLayr
 
         x = self.conv_1(x)
-        x = self.relu(self.pool(x))
+        x = self.relu(x)
         x = self.conv_2(x)
-        x = self.relu(self.pool(x))
+        x = self.relu(x)
         x = self.conv_3(x)
-        x = self.relu(self.pool(x))
+        x = self.relu(x)
+        x = self.conv_4(x)
+        x = self.relu(x)
         x = self.flatten(x)
-        # x = self.conv_4(x)
-        # x = self.flatten(self.relu(x))
         
         x = torch.concat((x, x_1), dim=-1)
         x = self.fc(x)
