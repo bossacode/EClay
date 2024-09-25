@@ -13,17 +13,17 @@ class Cnn(nn.Module):
         self.conv_1 = nn.Conv2d(in_channels, out_channels=32, kernel_size=3, stride=1, padding=1)
         self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
         self.conv_3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
+        # self.fc = nn.Sequential(
+        #     nn.Linear(16*128, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, num_classes)
+        #     )
+        self.conv_4 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=0)
         self.fc = nn.Sequential(
-            nn.Linear(9*128, 256),
+            nn.Linear(4 * 256, 256),
             nn.ReLU(),
             nn.Linear(256, num_classes)
             )
-        # self.conv_4 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1)
-        # self.fc = nn.Sequential(
-        #     nn.Linear(2304, 512),
-        #     nn.ReLU(),
-        #     nn.Linear(512, num_classes)
-        #     )
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.relu = nn.ReLU()
         self.flatten = nn.Flatten()
@@ -36,9 +36,9 @@ class Cnn(nn.Module):
         x = self.relu(self.pool(x))
         x = self.conv_3(x)
         x = self.relu(self.pool(x))
-        x = self.flatten(x)
-        # x = self.conv_4(x)
-        # x = self.flatten(self.relu(x))
+        # x = self.flatten(x)
+        x = self.conv_4(x)
+        x = self.flatten(self.relu(x))
         x = self.fc(x)
         return x
 
