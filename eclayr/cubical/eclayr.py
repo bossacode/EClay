@@ -135,12 +135,12 @@ class ECLayr(nn.Module):
     @staticmethod
     def _make_gtheta(gtheta_cfg):
         layer_list = []
-        layer_list.append(nn.BatchNorm1d(gtheta_cfg[0]))
+        # layer_list.append(nn.BatchNorm1d(gtheta_cfg[0]))
         layer_list.append(nn.Linear(gtheta_cfg[0], gtheta_cfg[1]))
-        layer_list.append(nn.BatchNorm1d(gtheta_cfg[1]))
+        # layer_list.append(nn.BatchNorm1d(gtheta_cfg[1]))
         num_layers = len(gtheta_cfg) - 1
         for i in range(1, num_layers):
             layer_list.append(nn.ReLU())
             layer_list.append(nn.Linear(gtheta_cfg[i], gtheta_cfg[i+1]))
-            layer_list.append(nn.BatchNorm1d(gtheta_cfg[i+1]))
+            # layer_list.append(nn.BatchNorm1d(gtheta_cfg[i+1]))
         return nn.Sequential(*layer_list)    
