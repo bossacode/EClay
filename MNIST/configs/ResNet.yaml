@@ -2,9 +2,19 @@ batch_size: 32
 epochs: 1000
 es_patience: 25
 factor: 0.1
-lr: 0.001
+lr: 0.005
 model_params:
   in_channels: 1
   num_classes: 10
+  block_cfg:
+  - 2
+  - 2
+  - 2
+  - 2
+  filter_cfg:
+  - 64
+  - 128
+  - 256
+  - 512
 sch_patience: 10
 threshold: 0.001
