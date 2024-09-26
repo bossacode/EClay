@@ -26,4 +26,4 @@ model_params:
   - 16
   beta: 0.1   # subject to change
 sch_patience: 10
-threshold: 0.3
+threshold: 0.001
