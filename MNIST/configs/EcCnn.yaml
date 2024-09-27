@@ -23,7 +23,7 @@ model_params:
   steps: 32
   gtheta_cfg:
   - 32
-  - 16
-  beta: 0.1   # subject to change
+  - 32
+  beta: 0.001
 sch_patience: 10
 threshold: 0.001
