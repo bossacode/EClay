@@ -44,10 +44,12 @@ cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 def set_optimizer(model, cfg):
     param_list = []
     for name, layer in model.named_children():
-        if "res" in name or "fc" in name:   # set lr for ResNet layer and FC layer
-            param_list.append({"params": layer.parameters(), "lr": cfg["lr"]})
-        elif "ecc" in name:                 # set lr for all ECLayr
+        if "ecc" in name:   # set lr for all ECLayr
+            print("name: ",name, "lr: ", cfg["lr_topo"])
             param_list.append({"params": layer.parameters(), "lr": cfg["lr_topo"]})
+        else:
+            print("name: ",name, "lr: ", cfg["lr"])
+            param_list.append({"params": layer.parameters(), "lr": cfg["lr"]})
     optim = Adam(param_list, lr=cfg["lr"], weight_decay=0.0001)
     return optim
 
@@ -88,6 +90,7 @@ if __name__ == "__main__":
             model = models[args.model](**cfg["model_params"]).to(cfg["device"])
             # optim = Adam(model.parameters(), lr=cfg["lr"])
             optim = set_optimizer(model, cfg)
+            print(optim)
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
             # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
 
