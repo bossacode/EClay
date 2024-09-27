@@ -130,6 +130,17 @@ class ECLayr(nn.Module):
             output: Tensor of shape [B, gtheta_cfg[-1]]
         """
         ecc = self.flatten(self.ecc_layer(x))   # shape: [B, (C * steps)]
+
+        # min-max scaling
+        min_val = ecc.min().item()
+        max_val = ecc.max().item()
+        if max_val != min_val:
+            ecc = (ecc - min_val) / (max_val - min_val)
+
+        # min_val = ecc.min(dim=1, keepdim=True)[0].detach()
+        # max_val = ecc.max(dim=1, keepdim=True)[0].detach()
+        # ecc = (ecc - min_val) / (max_val - min_val)
+        
         return self.gtheta(ecc)                 # shape: [B, gtheta_cfg[-1]]
     
     @staticmethod
