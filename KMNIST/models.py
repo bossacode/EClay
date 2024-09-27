@@ -174,7 +174,7 @@ class EcCnnDTM(Cnn):
     def forward(self, x):
         x, x_dtm005, x_dtm02 = x
 
-        x_# ECLayr 1
+        # ECLayr 1
         x_1 = F.relu(self.ecc_1(x_dtm005))
         
         # ECLayr 2
