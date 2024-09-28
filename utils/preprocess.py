@@ -15,12 +15,14 @@ def corrupt_noise(x, p):
         torch.Tensor: Data corrupted by random noise.
     """
     dist = Bernoulli(probs=p)
-    x_crpt = torch.where(dist.sample(x.shape).bool(),
-                        0,
-                        x)
-    x_crpt_noise = torch.where(dist.sample(x.shape).bool(),
-                            torch.rand(x.shape),
-                            x_crpt)
+    x_crpt = torch.where(
+        dist.sample(x.shape).bool(),
+        0,
+        x)
+    x_crpt_noise = torch.where(
+        (x < 0.01) * dist.sample(x.shape).bool(),
+        torch.rand(x.shape),
+        x_crpt)
     return x_crpt_noise
 
 
