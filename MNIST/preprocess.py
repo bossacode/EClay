@@ -109,4 +109,4 @@ if __name__ == "__main__":
     np.random.seed(123)
     torch.manual_seed(123)
     gen_sampled_data(train_size_list, val_size, num_labels=10)
-    gen_noise_data(cn_prob_list, dir_path="./dataset/processed/train_size/500/")  # "gen_sampled_data" must be preceeded to create directory containing sampled data before running "gen_noise_data"
+    gen_noise_data(cn_prob_list, dir_path="./dataset/processed/train_size/1000/")  # "gen_sampled_data" must be preceeded to create directory containing sampled data before running "gen_noise_data"
