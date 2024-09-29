@@ -131,6 +131,7 @@ class PlCnn_i(Cnn):
     def __init__(self, num_classes=10, **kwargs):
         super().__init__()
         self.sublevel = kwargs["sublevel"]
+        interval = kwargs["interval"]
         interval = interval if self.sublevel else [-i for i in reversed(interval)]
         tseq = np.linspace(*interval, kwargs["steps"])
         
@@ -147,6 +148,7 @@ class PlCnn_i(Cnn):
         # Pllay
         x_1 = x if self.sublevel else -x    # apply sublevel filtration on -x to obtain superlevel filtration
         x_1 = self.pllay(self.flatten(x_1))
+        x_1 = self.flatten(x_1)
         x_1 = tf.nn.relu(self.gtheta(x_1))
 
         x = self.conv(x)
@@ -155,6 +157,8 @@ class PlCnn_i(Cnn):
         
         x = tf.concat((x, x_1), axis=-1)
         x = self.fc(x)
+        print(x.shape)
+        print(x)
         return 
 
 
@@ -162,6 +166,7 @@ class PlCnn(Cnn):
     def __init__(self, num_classes=10, **kwargs):
         super().__init__()
         self.sublevel = kwargs["sublevel"]
+        interval = kwargs["interval"]
         interval = interval if self.sublevel else [-i for i in reversed(interval)]
         tseq = np.linspace(*interval, kwargs["steps"])
         
@@ -202,8 +207,10 @@ class PlCnnDTM_i(Cnn):
                  interval_1=[0.01, 0.29], interval_2=[0.05, 0.3],
                  **kwargs):
         self.sublevel = kwargs["sublevel"]
+        interval_1 = kwargs["interval_1"]
         interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
         tseq_1 = np.linspace(*interval_1, kwargs["steps"])
+        interval_2 = kwargs["interval_2"]
         interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
         tseq_2 = np.linspace(*interval_2, kwargs["steps"])
         super().__init__()
@@ -241,8 +248,10 @@ class PlCnnDTM(Cnn):
     def __init__(self, num_classes=10, 
                  interval_1=[0.01, 0.29], interval_2=[0.05, 0.3], **kwargs):
         self.sublevel = kwargs["sublevel"]
+        interval_1 = kwargs["interval_1"]
         interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
         tseq_1 = np.linspace(*interval_1, kwargs["steps"])
+        interval_2 = kwargs["interval_2"]
         interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
         tseq_2 = np.linspace(*interval_2, kwargs["steps"])
         super().__init__()
