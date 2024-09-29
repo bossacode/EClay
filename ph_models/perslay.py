@@ -6,7 +6,7 @@ import numpy as np
 
 
 class CubicalPerslay(tf.keras.layers.Layer):
-    def __init__(self, t_const=True, sublevel=True, interval=[0, 1], steps=32, out_features=32, k=2):
+    def __init__(self, t_const=True, sublevel=True, interval=[0, 1], steps=32, out_features=32, k=2, **kwargs):
         super().__init__()
         self.t_const = t_const
         self.sublevel = sublevel

@@ -15,10 +15,10 @@ model_params:
   grid_size:
   - 28
   - 28
-  interval_1:
+  interval_one:
   - 0.03
   - 0.34
-  interval_2:
+  interval_two:
   - 0.06
   - 0.35
   KK:

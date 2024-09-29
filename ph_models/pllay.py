@@ -728,9 +728,9 @@ class TopoWeightLayer(tf.keras.layers.Layer):
 
   def __init__(self, units=10, name='topoWlayer', **kwargs):
     super(TopoWeightLayer, self).__init__(name=name)
-    self.dtm_layer = DTMWeightLayer(**kwargs) #DTMWeightLayer(**kwargs)
+    self.dtm_layer = DTMWeightLayer(m0=0.05, lims=[[-0.5, 0.5],[-0.5, 0.5]], by=1/(kwargs["grid_size"][0]-1), **kwargs) #DTMWeightLayer(**kwargs)
     # self.diagram_layer = PersistenceDiagramLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
-    self.landscape_layer = PersistenceLandscapeLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
+    self.landscape_layer = PersistenceLandscapeLayer(**kwargs)
     self.g_layer = tf.keras.layers.Dense(units)
 
   # def compute_diagram(self, inputs):

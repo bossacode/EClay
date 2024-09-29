@@ -90,16 +90,15 @@ class PersCnn(Cnn):
 
 
 class PersCnnDTM(Cnn):
-    def __init__(self, num_classes=10, 
-                 interval_1=[0.01, 0.29], interval_2=[0.05, 0.3],
+    def __init__(self, num_classes=10,
                  *args, **kwargs):
         super().__init__()
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
         ])
-        self.perslay_1 = CubicalPerslay(interval=interval_1, *args, **kwargs)
-        self.perslay_2 = CubicalPerslay(interval=interval_2, *args, **kwargs)
+        self.perslay_1 = CubicalPerslay(interval=kwargs["interval_one"], *args, **kwargs)
+        self.perslay_2 = CubicalPerslay(interval=kwargs["interval_two"], *args, **kwargs)
 
     def call(self, x):
         x, x_dtm005, x_dtm02 = x
@@ -157,9 +156,7 @@ class PlCnn_i(Cnn):
         
         x = tf.concat((x, x_1), axis=-1)
         x = self.fc(x)
-        print(x.shape)
-        print(x)
-        return 
+        return x
 
 
 class PlCnn(Cnn):
@@ -185,6 +182,7 @@ class PlCnn(Cnn):
         # Pllay 1
         x_1 = x if self.sublevel else -x    # apply sublevel filtration on -x to obtain superlevel filtration
         x_1 = self.pllay_1(self.flatten(x_1))
+        x_1 = self.flatten(x_1)
         x_1 = tf.nn.relu(self.gtheta_1(x_1))
 
         x = self.conv(x)
@@ -192,9 +190,10 @@ class PlCnn(Cnn):
         x = self.flatten(x)
 
         # Pllay 2
-        x_2 = (x - x.min().numpy()) / (x.max().numpy() - x.min().numpy())  # normalize x_3 between 0 and 1
+        x_2 = (x - tf.reduce_min(x).numpy()) / (tf.reduce_max(x).numpy() - tf.reduce_min(x).numpy())  # normalize x_3 between 0 and 1
         x_2 = x_2 if self.sublevel else -x_2    # apply sublevel filtration on -x to obtain superlevel filtration
         x_2 = self.pllay_2(x_2)
+        x_2 = self.flatten(x_2)
         x_2 = tf.nn.relu(self.gtheta_2(x_2))
         
         x = tf.concat((x, x_1, x_2), axis=-1)
@@ -203,14 +202,14 @@ class PlCnn(Cnn):
 
 
 class PlCnnDTM_i(Cnn):
-    def __init__(self, num_classes=10, 
-                 interval_1=[0.01, 0.29], interval_2=[0.05, 0.3],
+    def __init__(self, num_classes=10,
                  **kwargs):
+        print(kwargs.keys())
         self.sublevel = kwargs["sublevel"]
-        interval_1 = kwargs["interval_1"]
+        interval_1 = kwargs["interval_one"]
         interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
         tseq_1 = np.linspace(*interval_1, kwargs["steps"])
-        interval_2 = kwargs["interval_2"]
+        interval_2 = kwargs["interval_two"]
         interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
         tseq_2 = np.linspace(*interval_2, kwargs["steps"])
         super().__init__()
@@ -229,11 +228,13 @@ class PlCnnDTM_i(Cnn):
         # Pllay 1
         x_1 = x_dtm005 if self.sublevel else -x_dtm005    # apply sublevel filtration on -x to obtain superlevel filtration
         x_1 = self.pllay_1(self.flatten(x_1))
+        x_1 = self.flatten(x_1)
         x_1 = tf.nn.relu(self.gtheta_1(x_1))
 
         # Pllay 2
         x_2 = x_dtm02 if self.sublevel else -x_dtm02    # apply sublevel filtration on -x to obtain superlevel filtration
         x_2 = self.pllay_2(self.flatten(x_2))
+        x_2 = self.flatten(x_2)
         x_2 = tf.nn.relu(self.gtheta_2(x_2))
 
         x = self.conv(x)
@@ -246,12 +247,12 @@ class PlCnnDTM_i(Cnn):
 
 class PlCnnDTM(Cnn):
     def __init__(self, num_classes=10, 
-                 interval_1=[0.01, 0.29], interval_2=[0.05, 0.3], **kwargs):
+                 **kwargs):
         self.sublevel = kwargs["sublevel"]
-        interval_1 = kwargs["interval_1"]
+        interval_1 = kwargs["interval_one"]
         interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
         tseq_1 = np.linspace(*interval_1, kwargs["steps"])
-        interval_2 = kwargs["interval_2"]
+        interval_2 = kwargs["interval_two"]
         interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
         tseq_2 = np.linspace(*interval_2, kwargs["steps"])
         super().__init__()
@@ -271,11 +272,13 @@ class PlCnnDTM(Cnn):
         # Pllay 1
         x_1 = x_dtm005 if self.sublevel else -x_dtm005    # apply sublevel filtration on -x to obtain superlevel filtration
         x_1 = self.pllay_1(self.flatten(x_1))
+        x_1 = self.flatten(x_1)
         x_1 = tf.nn.relu(self.gtheta_1(x_1))
 
         # Pllay 2
         x_2 = x_dtm02 if self.sublevel else -x_dtm02    # apply sublevel filtration on -x to obtain superlevel filtration
         x_2 = self.pllay_2(self.flatten(x_2))
+        x_2 = self.flatten(x_2)
         x_2 = tf.nn.relu(self.gtheta_2(x_2))
 
         x = self.conv(x)
@@ -283,8 +286,9 @@ class PlCnnDTM(Cnn):
         x = self.flatten(x)
 
         # Pllay 3
-        x_3 = (x - x.min().numpy()) / (x.max().numpy() - x.min().numpy())  # normalize x_3 between 0 and 1
+        x_3 = (x - tf.reduce_min(x).numpy()) / (tf.reduce_max(x).numpy() - tf.reduce_min(x).numpy())  # normalize x_3 between 0 and 1
         x_3 = self.pllay_3(x_3)
+        x_3 = self.flatten(x_3)
         x_3 = tf.nn.relu(x_3)
         
         x = tf.concat((x, x_1, x_2, x_3), axis=-1)
