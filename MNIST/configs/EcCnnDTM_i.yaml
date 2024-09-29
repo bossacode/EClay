@@ -3,26 +3,26 @@ epochs: 1000
 es_patience: 25
 factor: 0.1
 lr: 0.001
-lr_topo: 0.0001
+lr_topo: 0.001
 model_params:
   in_channels: 1
   num_classes: 10
 
   # ECLayr params
-  t_const: False
+  t_const: True
   sublevel: True
   size:
   - 28
   - 28
   interval_1:
-  - 0.06
-  - 0.3
+  - 0.02
+  - 0.28
   interval_2:
-  - 0.14
-  - 0.4
-  steps: 64
+  - 0.06
+  - 0.29
+  steps: 32
   gtheta_cfg:
-  - 64
+  - 32
   - 32
 sch_patience: 10
 threshold: 0.001
