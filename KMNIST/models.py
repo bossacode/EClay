@@ -11,28 +11,52 @@ from utils.dtm import WeightedDTMLayer
 class Cnn(nn.Module):
     def __init__(self, in_channels=1, num_classes=10):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=64, kernel_size=3, stride=1, padding=0)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=0)
-        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=0)
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1)
+            )
         self.fc = nn.Sequential(
-            nn.Linear(256, 64),
+            nn.Linear(784, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.flatten = nn.Flatten()
 
     def forward(self, x):
         x, x_dtm005, x_dtm02 = x
-        x = self.conv1(x)           # output size: (64, 26, 26)
-        x = self.pool(F.relu(x))    # output size: (64, 13, 13)
-        x = self.conv2(x)           # output size: (128, 11, 11)
-        x = self.pool(F.relu(x))    # output size: (128, 5, 5)
-        x = self.conv3(x)           # output size: (256, 3, 3)
-        x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        x = self.conv(x)
+        x = F.relu(x)
         x = self.flatten(x)
         x = self.fc(x)
         return x
+
+
+# class Cnn(nn.Module):
+#     def __init__(self, in_channels=1, num_classes=10):
+#         super().__init__()
+#         self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=64, kernel_size=3, stride=1, padding=0)
+#         self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=0)
+#         self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=0)
+#         self.fc = nn.Sequential(
+#             nn.Linear(256, 64),
+#             nn.ReLU(),
+#             nn.Linear(64, num_classes)
+#             )
+#         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+#         self.flatten = nn.Flatten()
+
+#     def forward(self, x):
+#         x, x_dtm005, x_dtm02 = x
+#         x = self.conv1(x)           # output size: (64, 26, 26)
+#         x = self.pool(F.relu(x))    # output size: (64, 13, 13)
+#         x = self.conv2(x)           # output size: (128, 11, 11)
+#         x = self.pool(F.relu(x))    # output size: (128, 5, 5)
+#         x = self.conv3(x)           # output size: (256, 3, 3)
+#         x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+#         x = self.flatten(x)
+#         x = self.fc(x)
+#         return x
 
 
 # Cnn + ECLayr
@@ -40,8 +64,13 @@ class EcCnn_i(Cnn):
     def __init__(self, in_channels=1, num_classes=10, gtheta_cfg=[32, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes)
         self.ecc = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        # self.fc = nn.Sequential(
+        #     nn.Linear(256 + gtheta_cfg[-1], 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, num_classes)
+        #     )
         self.fc = nn.Sequential(
-            nn.Linear(256 + gtheta_cfg[-1], 64),
+            nn.Linear(784 + gtheta_cfg[-1], 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
@@ -53,34 +82,38 @@ class EcCnn_i(Cnn):
         x_1 = F.relu(self.ecc(x))
 
         # Cnn
-        x = self.conv1(x)           # output size: (64, 26, 26)
-        x = self.pool(F.relu(x))    # output size: (64, 13, 13)
-        x = self.conv2(x)           # output size: (128, 11, 11)
-        x = self.pool(F.relu(x))    # output size: (128, 5, 5)
-        x = self.conv3(x)           # output size: (256, 3, 3)
-        x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.conv1(x)           # output size: (64, 26, 26)
+        # x = self.pool(F.relu(x))    # output size: (64, 13, 13)
+        # x = self.conv2(x)           # output size: (128, 11, 11)
+        # x = self.pool(F.relu(x))    # output size: (128, 5, 5)
+        # x = self.conv3(x)           # output size: (256, 3, 3)
+        # x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.flatten(x)
+        
+        x = self.conv(x)
+        x = F.relu(x)
         x = self.flatten(x)
 
-        # normalize
-        x_1_avg_norm = x_1.abs().sum().item() / (x_1.shape[0] * x_1.shape[1])
-        x_avg_norm = x.abs().sum().item() / (x.shape[0] * x.shape[1])
-        x_1 = x_1 / x_1_avg_norm * x_avg_norm
-        
         x = torch.concat((x, x_1), dim=-1)
         x = self.fc(x)
         return x
 
 # Cnn + ECLayr + ECLayr after conv
 class EcCnn(Cnn):
-    def __init__(self, in_channels=1, num_classes=10, size_1=[28, 28], size_2=[26, 26], gtheta_cfg=[32, 32], *args, **kwargs):
+    def __init__(self, in_channels=1, num_classes=10, gtheta_cfg=[32, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(size=size_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(size=size_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        # self.fc = nn.Sequential(
+        #     nn.Linear(256 + 2*gtheta_cfg[-1], 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, num_classes)
+        #     )
         self.fc = nn.Sequential(
-            nn.Linear(256 + 2*gtheta_cfg[-1], 64),
-            nn.ReLU(),
-            nn.Linear(64, num_classes)
-            )
+                    nn.Linear(784 + 2*gtheta_cfg[-1], 64),
+                    nn.ReLU(),
+                    nn.Linear(64, num_classes)
+                    )
 
     def forward(self, x):
         x, x_dtm005, x_dtm02 = x
@@ -89,26 +122,23 @@ class EcCnn(Cnn):
         x_1 = F.relu(self.ecc_1(x))
 
         # Cnn
-        x = self.conv1(x)           # output size: (64, 26, 26)
+        # x = self.conv1(x)           # output size: (64, 26, 26)
+
+        x = self.conv(x)
 
         # ECLayr 2 after first conv layer
-        x_2 = x.mean(dim=1, keepdim=True)
-        x_2 = (x_2 - x_2.min().item()) / (x_2.max().item() - x_2.min().item())   # normalize x_2 between 0 and 1
+        x_2 = (x_2 - x_2.min().item()) / (x_2.max().item() - x_2.min().item())  # normalize x_2 between 0 and 1
         x_2 = F.relu(self.ecc_2(x_2))
 
-        x = self.pool(F.relu(x))    # output size: (64, 13, 13)
-        x = self.conv2(x)           # output size: (128, 11, 11)
-        x = self.pool(F.relu(x))    # output size: (128, 5, 5)
-        x = self.conv3(x)           # output size: (256, 3, 3)
-        x = self.pool(F.relu(x))    # output size: (256, 1, 1)
-        x = self.flatten(x)
+        # x = self.pool(F.relu(x))    # output size: (64, 13, 13)
+        # x = self.conv2(x)           # output size: (128, 11, 11)
+        # x = self.pool(F.relu(x))    # output size: (128, 5, 5)
+        # x = self.conv3(x)           # output size: (256, 3, 3)
+        # x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.flatten(x)
 
-        # normalize
-        x_1_avg_norm = x_1.abs().sum().item() / (x_1.shape[0] * x_1.shape[1])
-        x_2_avg_norm = x_2.abs().sum().item() / (x_2.shape[0] * x_2.shape[1])
-        x_avg_norm = x.abs().sum().item() / (x.shape[0] * x.shape[1])
-        x_1 = x_1 / x_1_avg_norm * x_avg_norm
-        x_2 = x_2 / x_2_avg_norm * x_avg_norm
+        x = F.relu(x)
+        x = self.flatten(x)
 
         x = torch.concat((x, x_1, x_2), dim=-1)
         x = self.fc(x)
@@ -122,8 +152,13 @@ class EcCnnDTM_i(Cnn):
         super().__init__(in_channels, num_classes)
         self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.ecc_2 = ECLayr(interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        # self.fc = nn.Sequential(
+        #     nn.Linear(256 + 2*gtheta_cfg[-1], 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, num_classes)
+        #     )
         self.fc = nn.Sequential(
-            nn.Linear(256 + 2*gtheta_cfg[-1], 64),
+            nn.Linear(784 + 2*gtheta_cfg[-1], 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
@@ -138,20 +173,17 @@ class EcCnnDTM_i(Cnn):
         x_2 = F.relu(self.ecc_2(x_dtm02))
         
         # Cnn
-        x = self.conv1(x)           # output size: (64, 26, 26)
-        x = self.pool(F.relu(x))    # output size: (64, 13, 13)
-        x = self.conv2(x)           # output size: (128, 11, 11)
-        x = self.pool(F.relu(x))    # output size: (128, 5, 5)
-        x = self.conv3(x)           # output size: (256, 3, 3)
-        x = self.pool(F.relu(x))    # output size: (256, 1, 1)
-        x = self.flatten(x)
+        # x = self.conv1(x)           # output size: (64, 26, 26)
+        # x = self.pool(F.relu(x))    # output size: (64, 13, 13)
+        # x = self.conv2(x)           # output size: (128, 11, 11)
+        # x = self.pool(F.relu(x))    # output size: (128, 5, 5)
+        # x = self.conv3(x)           # output size: (256, 3, 3)
+        # x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.flatten(x)
 
-        # normalize
-        x_1_avg_norm = x_1.abs().sum().item() / (x_1.shape[0] * x_1.shape[1])
-        x_2_avg_norm = x_2.abs().sum().item() / (x_2.shape[0] * x_2.shape[1])
-        x_avg_norm = x.abs().sum().item() / (x.shape[0] * x.shape[1])
-        x_1 = x_1 / x_1_avg_norm * x_avg_norm
-        x_2 = x_2 / x_2_avg_norm * x_avg_norm
+        x = self.conv(x)
+        x = F.relu(x)
+        x = self.flatten(x)
 
         x = torch.concat((x, x_1, x_2), dim=-1)
         x = self.fc(x)
@@ -161,15 +193,20 @@ class EcCnnDTM_i(Cnn):
 class EcCnnDTM(Cnn):
     def __init__(self, in_channels=1, num_classes=10, gtheta_cfg=[32, 32],
                  interval_1=[0.02, 0.28], interval_2=[0.06, 0.29],
-                 size_1=[28, 28], size_2=[26, 26],
                  *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(size=size_1, interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(size=size_1, interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(sublevel=False, size=size_2, interval=[0, 1], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.fc = nn.Sequential(nn.Linear(256 + 3*gtheta_cfg[-1], 64),
-                                nn.ReLU(),
-                                nn.Linear(64, num_classes))
+        self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_3 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        # self.fc = nn.Sequential(nn.Linear(256 + 3*gtheta_cfg[-1], 64),
+        #                         nn.ReLU(),
+        #                         nn.Linear(64, num_classes))
+        self.fc = nn.Sequential(
+            nn.Linear(784 + 3*gtheta_cfg[-1], 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+            )
+        self.dtm = WeightedDTMLayer(m0=0.05, size=kwargs["size"])
 
     def forward(self, x):
         x, x_dtm005, x_dtm02 = x
@@ -181,23 +218,26 @@ class EcCnnDTM(Cnn):
         x_2 = F.relu(self.ecc_2(x_dtm02))
         
         # Cnn
-        x = self.conv1(x)           # output size: (64, 26, 26)
+        # x = self.conv1(x)           # output size: (64, 26, 26)
+
+        x = self.conv(x)
 
         # ECLayr 3 after first conv layer
-        x_3 = x.mean(dim=1, keepdim=True)
-        x_3 = (x_3 - x_3.min().item()) / (x_3.max().item() - x_3.min().item())   # normalize x_1 between 0 and 1
+        x_3 = (x_3 - x_3.min().item()) / (x_3.max().item() - x_3.min().item())  # normalize x_3 between 0 and 1
+        x_3 = self.dtm(x_3)
         x_3 = F.relu(self.ecc_3(x_3))
 
-        x = self.pool(F.relu(x))    # output size: (64, 13, 13)
-        x = self.conv2(x)           # output size: (128, 11, 11)
-        x = self.pool(F.relu(x))    # output size: (128, 5, 5)
-        x = self.conv3(x)           # output size: (256, 3, 3)
-        x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.pool(F.relu(x))    # output size: (64, 13, 13)
+        # x = self.conv2(x)           # output size: (128, 11, 11)
+        # x = self.pool(F.relu(x))    # output size: (128, 5, 5)
+        # x = self.conv3(x)           # output size: (256, 3, 3)
+        # x = self.pool(F.relu(x))    # output size: (256, 1, 1)
+        # x = self.flatten(x)
+
+        x = F.relu(x)
         x = self.flatten(x)
 
-
-        # FC layer
-        x = torch.concat((x, x_2, x_3, x_4), dim=-1)
+        x = torch.concat((x, x_1, x_2, x_3), dim=-1)
         x = self.fc(x)
         return x
 
