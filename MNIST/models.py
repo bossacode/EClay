@@ -127,7 +127,7 @@ class EcCnn(Cnn):
         x = self.conv(x)
 
         # ECLayr 2 after first conv layer
-        x_2 = (x_2 - x_2.min().item()) / (x_2.max().item() - x_2.min().item())  # normalize x_2 between 0 and 1
+        x_2 = (x - x.min().item()) / (x.max().item() - x.min().item())  # normalize x_2 between 0 and 1
         x_2 = F.relu(self.ecc_2(x_2))
 
         # x = self.pool(F.relu(x))    # output size: (64, 13, 13)
@@ -223,7 +223,7 @@ class EcCnnDTM(Cnn):
         x = self.conv(x)
 
         # ECLayr 3 after first conv layer
-        x_3 = (x_3 - x_3.min().item()) / (x_3.max().item() - x_3.min().item())  # normalize x_3 between 0 and 1
+        x_3 = (x - x.min().item()) / (x.max().item() - x.min().item())  # normalize x_3 between 0 and 1
         x_3 = self.dtm(x_3)
         x_3 = F.relu(self.ecc_3(x_3))
 
