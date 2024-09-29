@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # loop over different training size
     for train_size in train_size_list:
-        project = "KMNIST_data"      # used as project name in wandb
+        project = "KMNIST_data_heavy"      # used as project name in wandb
         
         print("-"*30)
         print(f"Number of training data: {train_size}")
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     # loop over different noise probability
     for p in cn_prob_list:
-        project = "KMNIST_noise"     # used as project name in wandb
+        project = "KMNIST_noise_heavy"     # used as project name in wandb
 
         print("-"*30)
         print(f"Corruption & noise rate: {p}")
