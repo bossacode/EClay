@@ -6,14 +6,25 @@ lr: 0.001
 model_params:
   num_classes: 10
   
-  # Perslay params
+  # Pllay params
   t_const: True
-  sublevel: False
-  interval:
+  sublevel: True
+  dimensions:
+  - 0
+  - 1
+  grid_size:
+  - 28
+  - 28
+  interval_1:
+  - 0.03
+  - 0.34
+  interval_2:
+  - 0.06
+  - 0.35
+  KK:
   - 0
   - 1
   steps: 32
   out_features: 32
-  k: 2
 sch_patience: 10
 threshold: 0.001
