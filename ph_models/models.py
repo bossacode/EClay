@@ -127,7 +127,7 @@ class PersCnnDTM(Cnn):
         return x
 
 
-class PLCnn_i(Cnn):
+class PlCnn_i(Cnn):
     def __init__(self, num_classes=10, **kwargs):
         super().__init__()
         self.sublevel = kwargs["sublevel"]
@@ -158,7 +158,7 @@ class PLCnn_i(Cnn):
         return 
 
 
-class PLCnn(Cnn):
+class PlCnn(Cnn):
     def __init__(self, num_classes=10, **kwargs):
         super().__init__()
         self.sublevel = kwargs["sublevel"]
@@ -197,7 +197,7 @@ class PLCnn(Cnn):
         return x
 
 
-class PLCnnDTM_i(Cnn):
+class PlCnnDTM_i(Cnn):
     def __init__(self, num_classes=10, 
                  interval_1=[0.01, 0.29], interval_2=[0.05, 0.3],
                  **kwargs):
@@ -237,7 +237,7 @@ class PLCnnDTM_i(Cnn):
         x = self.fc(x)
         return x
 
-class PLCnnDTM(Cnn):
+class PlCnnDTM(Cnn):
     def __init__(self, num_classes=10, 
                  interval_1=[0.01, 0.29], interval_2=[0.05, 0.3], **kwargs):
         self.sublevel = kwargs["sublevel"]

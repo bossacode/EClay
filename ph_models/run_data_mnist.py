@@ -4,7 +4,7 @@ import wandb
 import argparse
 import yaml
 from train_tf import set_dataloader, train_test, train_test_wandb
-from models import PersCnn
+from models import PersCnn, PlCnn_i, PlCnn
 
 
 # for reproducibility (may degrade performance)
@@ -18,7 +18,9 @@ args = parser.parse_args()
 
 
 models = {
-    "PersCnn": PersCnn
+    "PersCnn": PersCnn,
+    "PlCnn_i": PlCnn_i,
+    "PlCnn": PlCnn
     }
 
 
