@@ -1,0 +1,20 @@
+batch_size: 32
+epochs: 1000
+es_patience: 25
+factor: 0.1
+lr: 0.001
+lr_topo: 0.001
+model_params:
+  num_classes: 10
+  
+  # Perslay params
+  t_const: True
+  sublevel: False
+  interval:
+  - -0.01
+  - 1.01
+  steps: 32
+  out_features: 32
+  k: 2
+sch_patience: 10
+threshold: 0.001
