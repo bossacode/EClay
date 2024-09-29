@@ -10,27 +10,20 @@ model_params:
 
   # ECLayr params
   t_const: True
-  sublevel_1: True
-  sublevel_2: False
-  size_1:
+  sublevel: True
+  size:
   - 28
   - 28
-  size_2:
-  - 26
-  - 26
   interval_1:
   - 0.03
   - 0.34
   interval_2:
   - 0.06
   - 0.35
-  interval_3:
-  - 0
-  - 1
   steps: 32
   gtheta_cfg:
   - 32
   - 32
-  beta: 0.001
+  beta: 0.01
 sch_patience: 10
 threshold: 0.001
