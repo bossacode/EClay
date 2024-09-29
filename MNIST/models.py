@@ -147,11 +147,11 @@ class EcCnn(Cnn):
 
 class EcCnnDTM_i(Cnn):
     def __init__(self, in_channels=1, num_classes=10, gtheta_cfg=[32, 32],
-                 interval_1=[0.02, 0.28], interval_2=[0.06, 0.29],
                  *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        # self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
         # self.fc = nn.Sequential(
         #     nn.Linear(256 + 2*gtheta_cfg[-1], 64),
         #     nn.ReLU(),
@@ -192,12 +192,11 @@ class EcCnnDTM_i(Cnn):
 
 class EcCnnDTM(Cnn):
     def __init__(self, in_channels=1, num_classes=10, gtheta_cfg=[32, 32],
-                 interval_1=[0.02, 0.28], interval_2=[0.06, 0.29],
                  *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(interval=interval_2, gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_3 = ECLayr(interval=interval_1, gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_3 = ECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
         # self.fc = nn.Sequential(nn.Linear(256 + 3*gtheta_cfg[-1], 64),
         #                         nn.ReLU(),
         #                         nn.Linear(64, num_classes))
