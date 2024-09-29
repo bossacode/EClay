@@ -6,8 +6,8 @@ import numpy as np
 
 
 class CubicalPerslay(tf.keras.layers.Layer):
-    def __init__(self, t_const=True, sublevel=True, interval=[-0.01, 1.01], steps=32, out_features=32, k=2):
-        super().__init__()
+    def __init__(self, t_const=True, sublevel=True, interval=[-0.01, 1.01], steps=32, out_features=32, k=2, trainable=True, name=None, dtype=None, dynamic=False, **kwargs):
+        super().__init__(trainable, name, dtype, dynamic, **kwargs)
         self.t_const = t_const
         self.sublevel = sublevel
         interval = interval if sublevel else [-i for i in reversed(interval)]
