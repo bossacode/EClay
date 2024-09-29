@@ -102,11 +102,11 @@ def gen_noise_data(cn_prob_list, dir_path):
 
 
 if __name__ == "__main__":
-    train_size_list = [300, 500, 700, 1000, 10000]    # training sample sizes
+    train_size_list = [500, 1000, 1500, 2000]    # training sample sizes
     cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
     val_size=0.3                                    # proportion of validation split
 
     np.random.seed(123)
     torch.manual_seed(123)
     gen_sampled_data(train_size_list, val_size, num_labels=10)
-    gen_noise_data(cn_prob_list, dir_path="./dataset/processed/train_size/500/")  # "gen_sampled_data" must be preceeded to create directory containing sampled data before running "gen_noise_data"
+    gen_noise_data(cn_prob_list, dir_path="./dataset/processed/train_size/1500/")  # "gen_sampled_data" must be preceeded to create directory containing sampled data before running "gen_noise_data"
