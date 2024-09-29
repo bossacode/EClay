@@ -16,382 +16,384 @@ tf.enable_v2_behavior()
 
 """# Layer Definitions"""
 
-# # @tf.function
-# def tf_scatter(indices, updates, params_shape, batch_dims=0, name=None):
-#   """Inverse of tf.gather.
+# @tf.function
+def tf_scatter(indices, updates, params_shape, batch_dims=0, name=None):
+  """Inverse of tf.gather.
 
-#   Args:
-#     indices: tensor of shape [..., N], with values in in [0, M)
-#     updates: tensor of shape [..., N, ...] indices.shape + params_shape[batch_dims + 1:]
-#     params_shape: target tensor shape [..., M, ...]
-#     batch_dims: int. The first batch_dims axes of indices and updates must match exactly
+  Args:
+    indices: tensor of shape [..., N], with values in in [0, M)
+    updates: tensor of shape [..., N, ...] indices.shape + params_shape[batch_dims + 1:]
+    params_shape: target tensor shape [..., M, ...]
+    batch_dims: int. The first batch_dims axes of indices and updates must match exactly
 
-#   Returns:
-#     params: tensor of shape params_shape
+  Returns:
+    params: tensor of shape params_shape
 
-#   """
+  """
 
-#   # params_shape = list(params_shape)
-#   B = tf.reduce_prod(indices.shape[:batch_dims])
-#   T = B*indices.shape[batch_dims]
-#   flatten_indices = tf.reshape(indices, [T, 1])
-#   flatten_updates = tf.reshape(updates, [T] + params_shape[batch_dims+1:])
+  # params_shape = list(params_shape)
+  B = tf.reduce_prod(indices.shape[:batch_dims])
+  T = B*indices.shape[batch_dims]
+  flatten_indices = tf.reshape(indices, [T, 1])
+  flatten_updates = tf.reshape(updates, [T] + params_shape[batch_dims+1:])
   
-#   prefix_indices = tf.broadcast_to(tf.expand_dims(tf.range(B), 1), [B, indices.shape[batch_dims]])
-#   flatten_prefix = tf.reshape(prefix_indices, [T, 1])
-#   full_indices = tf.concat((flatten_prefix, flatten_indices), axis=1)
+  prefix_indices = tf.broadcast_to(tf.expand_dims(tf.range(B), 1), [B, indices.shape[batch_dims]])
+  flatten_prefix = tf.reshape(prefix_indices, [T, 1])
+  full_indices = tf.concat((flatten_prefix, flatten_indices), axis=1)
 
-#   # print(full_indices.shape, flatten_updates.shape, [B] + params_shape[batch_dims:], params_shape)
-#   flatten_params = tf.scatter_nd(full_indices, flatten_updates, [B] + params_shape[batch_dims:])
-#   return tf.reshape(flatten_params, params_shape)
+  # print(full_indices.shape, flatten_updates.shape, [B] + params_shape[batch_dims:], params_shape)
+  flatten_params = tf.scatter_nd(full_indices, flatten_updates, [B] + params_shape[batch_dims:])
+  return tf.reshape(flatten_params, params_shape)
 
-# def tf_dtmFromKnnDistance(knnDistance, weightBound, r=2.):
-#   """TF Distance to measure using KNN.
+def tf_dtmFromKnnDistance(knnDistance, weightBound, r=2.):
+  """TF Distance to measure using KNN.
 
-#   Args:
-#     knnDistance: Tensor of shape [..., N, k]
-#     weightBound: Float weight bound
-#     r: Int r-Norm
+  Args:
+    knnDistance: Tensor of shape [..., N, k]
+    weightBound: Float weight bound
+    r: Int r-Norm
 
-#   Returns:
-#     dtmValue: Tensor of shape [..., N]
-#   """
-#   dtmValue = None
-#   weightSumTemp = tf.math.ceil(weightBound)
-#   index_int = tf.cast(weightSumTemp, tf.int32) - 1
-#   if r == 2.0:
-#     distanceTemp = tf.square(knnDistance)
-#     cumDistance = tf.math.cumsum(distanceTemp, -1)
-#     dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
-#     dtmValue = tf.sqrt(dtmValue/weightBound)
-#   elif r == 1.0:
-#     distanceTemp = knnDistance
-#     cumDistance = tf.math.cumsum(distanceTemp, -1)
-#     dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
-#     dtmValue = dtmValue/weightBound
-#   else:
-#     distanceTemp = tf.math.pow(knnDistance, r)
-#     cumDistance = tf.math.cumsum(distanceTemp, -1)
-#     dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
-#     dtmValue = tf.math.pow(dtmValue/weightBound, 1/r)
-#   return dtmValue
+  Returns:
+    dtmValue: Tensor of shape [..., N]
+  """
+  dtmValue = None
+  weightSumTemp = tf.math.ceil(weightBound)
+  index_int = tf.cast(weightSumTemp, tf.int32) - 1
+  if r == 2.0:
+    distanceTemp = tf.square(knnDistance)
+    cumDistance = tf.math.cumsum(distanceTemp, -1)
+    dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
+    dtmValue = tf.sqrt(dtmValue/weightBound)
+  elif r == 1.0:
+    distanceTemp = knnDistance
+    cumDistance = tf.math.cumsum(distanceTemp, -1)
+    dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
+    dtmValue = dtmValue/weightBound
+  else:
+    distanceTemp = tf.math.pow(knnDistance, r)
+    cumDistance = tf.math.cumsum(distanceTemp, -1)
+    dtmValue = cumDistance[..., index_int] + distanceTemp[..., index_int] * (weightBound - weightSumTemp)
+    dtmValue = tf.math.pow(dtmValue/weightBound, 1/r)
+  return dtmValue
 	
 
-# def tf_dtmFromKnnDistanceWeight(knnDistance, knnIndex, weight, weightBound, r=2.):
-#   """TF Weighted Distance to measure using KNN.
+def tf_dtmFromKnnDistanceWeight(knnDistance, knnIndex, weight, weightBound, r=2.):
+  """TF Weighted Distance to measure using KNN.
 
-#   Args:
-#     knnDistance: Tensor of shape [..., N, k]
-#     knnIndex: Tensor of shape [..., N, k]
-#     weight: Tensor of shape [..., M]
-#     weightBound: Tensor of shape [..., 1]
-#     r: Int r-Norm
+  Args:
+    knnDistance: Tensor of shape [..., N, k]
+    knnIndex: Tensor of shape [..., N, k]
+    weight: Tensor of shape [..., M]
+    weightBound: Tensor of shape [..., 1]
+    r: Int r-Norm
 
-#   Returns:
-#     dtmValue: Tensor of shape [..., N]
-#   """
-#   dtmValue = None
-#   weightBound = tf.expand_dims(weightBound, -1)
-#   weightTemp = tf.gather(weight, knnIndex, batch_dims=len(weight.shape)-1)  # [..., N, k]
-#   weightSumTemp = tf.math.cumsum(weightTemp, -1)
-#   index_int = tf.searchsorted(weightSumTemp, tf.repeat(weightBound, knnDistance.shape[-2], -2))  # [..., N, 1]
-#   if r == 2.0:
-#     distanceTemp = tf.square(knnDistance)
-#     cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
-#     dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
-#     dtmValue = tf.sqrt(dtmValue/weightBound)
-#   elif r == 1.0:
-#     distanceTemp = knnDistance
-#     cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
-#     dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
-#     dtmValue = dtmValue/weightBound
-#   else:
-#     distanceTemp = tf.math.pow(knnDistance, r)
-#     cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
-#     dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
-#     dtmValue = tf.math.pow(dtmValue/weightBound, 1/r)
-#   return tf.squeeze(dtmValue, -1)
+  Returns:
+    dtmValue: Tensor of shape [..., N]
+  """
+  dtmValue = None
+  weightBound = tf.expand_dims(weightBound, -1)
+  weightTemp = tf.gather(weight, knnIndex, batch_dims=len(weight.shape)-1)  # [..., N, k]
+  weightSumTemp = tf.math.cumsum(weightTemp, -1)
+  index_int = tf.searchsorted(weightSumTemp, tf.repeat(weightBound, knnDistance.shape[-2], -2))  # [..., N, 1]
+  if r == 2.0:
+    distanceTemp = tf.square(knnDistance)
+    cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
+    dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
+    dtmValue = tf.sqrt(dtmValue/weightBound)
+  elif r == 1.0:
+    distanceTemp = knnDistance
+    cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
+    dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
+    dtmValue = dtmValue/weightBound
+  else:
+    distanceTemp = tf.math.pow(knnDistance, r)
+    cumDistance = tf.math.cumsum(distanceTemp * weightTemp, -1)
+    dtmValue = tf.gather(cumDistance +  distanceTemp*(weightBound-weightSumTemp), index_int, batch_dims=len(knnDistance.shape)-1)
+    dtmValue = tf.math.pow(dtmValue/weightBound, 1/r)
+  return tf.squeeze(dtmValue, -1)
 
-# def tf_knn(X, Y, k, r=2.):
-#   """TF Brute Force KNN.
+def tf_knn(X, Y, k, r=2.):
+  """TF Brute Force KNN.
 
-#   Args:
-#     X: Tensor of shape [..., M, D]
-#     Y: Tensor of shape [N, D]
-#     k: Int representing number of neighbors
+  Args:
+    X: Tensor of shape [..., M, D]
+    Y: Tensor of shape [N, D]
+    k: Int representing number of neighbors
 
-#   Returns:
-#     distance: Tensor of shape [..., N, k]
-#     index: Tensor of shape [..., N, k]
-#   """
-#   # print(X.shape, Y.shape)
-#   assert X.shape[-1] == Y.shape[1]
-#   d = X.shape[-1]
-#   if r == 2.0:
-#     Xr = tf.reshape(X, (-1, d))
-#     Yr = tf.reshape(Y, (-1, d))
-#     XY = tf.einsum('ik,jk->ij', Xr, Yr)
-#     X2 = tf.reduce_sum(tf.square(Xr), 1, keepdims=True)
-#     Y2 = tf.expand_dims(tf.reduce_sum(tf.square(Yr), 1), 0)
-#     neg_dist = - tf.sqrt(tf.maximum(X2 + Y2 - 2.0 * XY, 0.))
-#   elif r == 1.0:
-#     Xr = tf.reshape(X, (-1, 1, d))
-#     Yr = tf.reshape(Y, (1, -1, d))
-#     XY = tf.reduce_sum(tf.abs(Xr - Yr), -1)
-#     neg_dist = - XY
-#   else:
-#     Xr = tf.reshape(X, (-1, 1, d))
-#     Yr = tf.reshape(Y, (1, -1, d))
-#     XY = tf.reduce_sum(tf.pow(tf.abs(Xr - Yr), r), -1)
-#     neg_dist = - tf.math.pow(XY, 1/r)
-#   neg_dist = tf.reshape(neg_dist, X.shape[:-1] + Y.shape[0])  # [..., M, N]
-#   neg_dist = tf.transpose(neg_dist, tf.concat((tf.range(0, tf.rank(X)-2), [tf.rank(X)-1, tf.rank(X)-2]), 0) )
-#   distance, index = tf.math.top_k(neg_dist, k)  # [..., N, k]
-#   return -distance, index
+  Returns:
+    distance: Tensor of shape [..., N, k]
+    index: Tensor of shape [..., N, k]
+  """
+  # print(X.shape, Y.shape)
+  assert X.shape[-1] == Y.shape[1]
+  d = X.shape[-1]
+  if r == 2.0:
+    Xr = tf.reshape(X, (-1, d))
+    Yr = tf.reshape(Y, (-1, d))
+    XY = tf.einsum('ik,jk->ij', Xr, Yr)
+    X2 = tf.reduce_sum(tf.square(Xr), 1, keepdims=True)
+    Y2 = tf.expand_dims(tf.reduce_sum(tf.square(Yr), 1), 0)
+    neg_dist = - tf.sqrt(tf.maximum(X2 + Y2 - 2.0 * XY, 0.))
+  elif r == 1.0:
+    Xr = tf.reshape(X, (-1, 1, d))
+    Yr = tf.reshape(Y, (1, -1, d))
+    XY = tf.reduce_sum(tf.abs(Xr - Yr), -1)
+    neg_dist = - XY
+  else:
+    Xr = tf.reshape(X, (-1, 1, d))
+    Yr = tf.reshape(Y, (1, -1, d))
+    XY = tf.reduce_sum(tf.pow(tf.abs(Xr - Yr), r), -1)
+    neg_dist = - tf.math.pow(XY, 1/r)
+  neg_dist = tf.reshape(neg_dist, X.shape[:-1] + Y.shape[0])  # [..., M, N]
+  neg_dist = tf.transpose(neg_dist, tf.concat((tf.range(0, tf.rank(X)-2), [tf.rank(X)-1, tf.rank(X)-2]), 0) )
+  distance, index = tf.math.top_k(neg_dist, k)  # [..., N, k]
+  return -distance, index
 
-# def tf_gridBy(lims, by):
-#   if np.ndim(by) == 0:
-#     by = np.repeat(by, repeats=len(lims))
-#   expansions = [tf.range(x, y+byd, delta=byd, dtype=tf.float32) for (x, y), byd in zip(lims, by)]
-#   dim = [len(ex) for ex in expansions]
-#   grid = tf.reshape(tf.transpose(tf.stack(tf.meshgrid(*expansions, indexing='ij'), 0)), [-1, len(lims)])
-#   return grid, dim
-
-
-
-# class DTMLayer(tf.keras.layers.Layer):
-
-#   def __init__(self, 
-#                m0=0.3,
-#                lims=[[-1., 1.], [-1., 1.]], 
-#                by=1, 
-#                r=2.0, 
-#                name='dtmlayer', 
-#                **kwargs):
-#     super(DTMLayer, self).__init__(name=name)
-#     self.m0 = m0
-#     self.r = r
-#     self.grid, self.grid_size = tf_gridBy(lims, by)
-
-#   def dtm(self, inputs):
-#     """TF Without Weighted Distance to measure using KNN.
-
-#     Args:
-#       inputs: Tensor of shape [..., M, d]
-
-#     Returns:
-#       dtmValue: Tensor of shape [..., N]
-#       knnIndex: Tensor of shape [..., N, k]
-#       weightBound: Tensor of shape []
-#     """
-#     weightBound = self.m0 * inputs.shape[-2]
-#     weightBoundCeil = tf.math.ceil(weightBound)
-#     knnDistance, knnIndex = tf_knn(inputs, self.grid, tf.cast(weightBoundCeil, tf.int32))
-#     return tf_dtmFromKnnDistance(knnDistance, weightBound, self.r), knnIndex, weightBound
-
-#   def dtm_grad(self, inputs, dtmValue, knnIndex, weightBound):
-#     """TF Graident of Without Weighted Distance to measure using KNN.
-
-#     Args:
-#       inputs: Tensor of shape [..., M, d]
-#       dtmValue: Tensor of shape [..., N]
-#       knnIndex: Tensor of shape [..., N, k]
-#       weightBound: Tensor of shape []
-
-#     Returns:
-#       dtmDiff: Tensor of shape [..., N, M, d]
-#     """
-#     weightBoundCeil = tf.math.ceil(weightBound)
-
-#     Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
-#     dtmDiff = Xa - tf.expand_dims(self.grid, 1)  # [..., N, k, d]
-#     dtmLastValue = dtmDiff[..., -1:, :] * (1. + weightBound - weightBoundCeil)
-#     sparse_dtmDiff = tf.concat((dtmDiff[..., :-1, :], dtmLastValue), -2)
-
-#     dtmDiff = tf_scatter(knnIndex, sparse_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:], batch_dims=len(knnIndex.shape)-1)
-#     dtmDiff /= (weightBound * tf.reshape(dtmValue, dtmValue.shape + [1, 1]))
-#     return dtmDiff
-
-#   # @tf.custom_gradient
-#   # def call(self, inputs):
-#   #   """.
-
-#   #   Args:
-#   #     inputs: tensor of shape [..., M, d]
-
-#   #   Returns:
-#   #     outputs: tensor of shape [..., N]
-#   #   """
-#   #   dtmValue, knnIndex, weightBound = self.dtm(inputs)
-#   #   def grad(dy):
-#   #     """"dy: [..., N]."""
-#   #     dtmDiff = self.dtm_grad(inputs, dtmValue, knnIndex, weightBound)
-#   #     return tf.einsum('...i,...ijk->...jk', dy, dtmDiff)
-#   #   return dtmValue, grad
-
-#   def call(self, inputs, weights=None):
-#     """.
-
-#     Args:
-#       inputs: tensor of shape [..., M, d]
-
-#     Returns:
-#       outputs: tensor of shape [..., N]
-#     """
-#     dtmValue, knnIndex, weightBound = self.dtm(inputs)
-#     return dtmValue
+def tf_gridBy(lims, by):
+  if np.ndim(by) == 0:
+    by = np.repeat(by, repeats=len(lims))
+  expansions = [tf.range(x, y+byd, delta=byd, dtype=tf.float32) for (x, y), byd in zip(lims, by)]
+  dim = [len(ex) for ex in expansions]
+  grid = tf.reshape(tf.transpose(tf.stack(tf.meshgrid(*expansions, indexing='ij'), 0)), [-1, len(lims)])
+  return grid, dim
 
 
 
-# class DTMWeightLayer(tf.keras.layers.Layer):
+class DTMLayer(tf.keras.layers.Layer):
 
-#   def __init__(self, 
-#                m0=0.3,
-#                lims=[[-1., 1.], [-1., 1.]], 
-#                by=1, 
-#                r=2.0, 
-#                name='dtmweightlayer', 
-#                **kwargs):
-#     super(DTMWeightLayer, self).__init__(name=name)
-#     self.m0 = m0
-#     self.r = r
-#     self.grid, self.grid_size = tf_gridBy(lims, by)
+  def __init__(self, 
+               m0=0.3,
+               lims=[[-1., 1.], [-1., 1.]], 
+               by=1, 
+               r=2.0, 
+               name='dtmlayer', 
+               **kwargs):
+    super(DTMLayer, self).__init__(name=name)
+    self.m0 = m0
+    self.r = r
+    self.grid, self.grid_size = tf_gridBy(lims, by)
 
-#   def dtm(self, inputs, weight):
-#     """TF Weighted Distance to measure using KNN.
+  def dtm(self, inputs):
+    """TF Without Weighted Distance to measure using KNN.
 
-#     Args:
-#       inputs: Tensor of shape [..., M, d]
-#       weight: Tensor of shape [..., M]
+    Args:
+      inputs: Tensor of shape [..., M, d]
 
-#     Returns:
-#       dtmValue: Tensor of shape [..., N]
-#       knnIndex: Tensor of shape [..., N, k]
-#       weightBound: Tensor of shape [..., 1]
-#     """
-#     weightsort = tf.sort(weight)  # [..., M]
-#     weightBound = self.m0 * tf.reduce_sum(weight, -1, keepdims=True)  # [..., 1]
-#     weightSumTemp = tf.math.cumsum(weightsort, -1)  # [..., M]
-#     index_int = tf.searchsorted(weightSumTemp, weightBound) # [..., 1]
-#     max_index_int = tf.reduce_max(index_int) + 1
-#     # if (max_index_int <= 0):
-#     #   print("max_index_int nonpositive!")
-#     #   print(max_index_int)
-#     #   print("inputs:")
-#     #   print(inputs)
-#     #   print("weight:")
-#     #   print(weight)
+    Returns:
+      dtmValue: Tensor of shape [..., N]
+      knnIndex: Tensor of shape [..., N, k]
+      weightBound: Tensor of shape []
+    """
+    weightBound = self.m0 * inputs.shape[-2]
+    weightBoundCeil = tf.math.ceil(weightBound)
+    knnDistance, knnIndex = tf_knn(inputs, self.grid, tf.cast(weightBoundCeil, tf.int32))
+    return tf_dtmFromKnnDistance(knnDistance, weightBound, self.r), knnIndex, weightBound
 
-#     knnDistance, knnIndex = tf_knn(inputs, self.grid, tf.cast(max_index_int, tf.int32))
+  def dtm_grad(self, inputs, dtmValue, knnIndex, weightBound):
+    """TF Graident of Without Weighted Distance to measure using KNN.
 
-#     return tf_dtmFromKnnDistanceWeight(knnDistance, knnIndex, weight, weightBound, self.r), knnIndex, weightBound
+    Args:
+      inputs: Tensor of shape [..., M, d]
+      dtmValue: Tensor of shape [..., N]
+      knnIndex: Tensor of shape [..., N, k]
+      weightBound: Tensor of shape []
 
-#   def dtm_grad_x(self, inputs, weight, dtmValue, knnIndex, weightBound):
-#     """TF Graident of With Weighted Distance to measure using KNN.
+    Returns:
+      dtmDiff: Tensor of shape [..., N, M, d]
+    """
+    weightBoundCeil = tf.math.ceil(weightBound)
 
-#     Args:
-#       inputs: Tensor of shape [..., M, d]
-#       weight: Tensor of shape [..., M]
-#       dtmValue: Tensor of shape [..., N]
-#       knnIndex: Tensor of shape [..., N, k]
-#       weightBound: Tensor of shape [..., 1]
+    Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
+    dtmDiff = Xa - tf.expand_dims(self.grid, 1)  # [..., N, k, d]
+    dtmLastValue = dtmDiff[..., -1:, :] * (1. + weightBound - weightBoundCeil)
+    sparse_dtmDiff = tf.concat((dtmDiff[..., :-1, :], dtmLastValue), -2)
 
-#     Returns:
-#       dtmDiff: Tensor of shape [..., N, M, d]
-#       index_int: Tensor of shape [..., N, 1]
-#       mask: Tensor of shape [..., N, k-1]
-#     """
-#     weightBound = tf.expand_dims(weightBound, -1) # [..., 1, 1]
-#     weightTemp = tf.gather(weight, knnIndex, batch_dims=len(weight.shape)-1)  # [..., N, k]
-#     weightSumTemp = tf.math.cumsum(weightTemp, -1)
-#     index_int = tf.searchsorted(weightSumTemp, tf.repeat(weightBound, knnIndex.shape[-2], -2))  # [..., N, 1]
-#     mask = tf.sequence_mask(tf.squeeze(index_int, -1), dtype=tf.float32)  # [..., N, k]
+    dtmDiff = tf_scatter(knnIndex, sparse_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:], batch_dims=len(knnIndex.shape)-1)
+    dtmDiff /= (weightBound * tf.reshape(dtmValue, dtmValue.shape + [1, 1]))
+    return dtmDiff
 
-#     weightBound = tf.expand_dims(weightBound, -1)  # [..., 1, 1, 1]
-#     weightSumTemp = tf.expand_dims(weightSumTemp, -1)  # [..., N, k, 1] 
-#     Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
-#     unweightDtmDiff = (Xa - tf.expand_dims(self.grid, 1))  # [..., N, k, d]
-#     dtmDiff = tf.expand_dims(weightTemp, -1) * unweightDtmDiff
-#     dtmLastValue = tf.gather(dtmDiff + unweightDtmDiff * (weightBound - weightSumTemp), index_int, batch_dims=len(knnIndex.shape)-1)
-#     mask_dtmDiff = dtmDiff[..., :-1, :] * tf.expand_dims(mask, -1)
-#     sparse_dtmDiff = tf.concat((mask_dtmDiff, dtmLastValue), -2)
+  # @tf.custom_gradient
+  # def call(self, inputs):
+  #   """.
 
-#     knnLastIndex = tf.gather(knnIndex, index_int, batch_dims=len(knnIndex.shape)-1)
-#     sparse_knnIndex = tf.concat((knnIndex[..., :-1], knnLastIndex), -1)
+  #   Args:
+  #     inputs: tensor of shape [..., M, d]
 
-#     dtmDiff = tf_scatter(sparse_knnIndex, sparse_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:], batch_dims=len(knnIndex.shape)-1)
-#     dtmDiff /= (weightBound * tf.reshape(dtmValue, dtmValue.shape + [1, 1]))
-#     return dtmDiff, index_int, mask
+  #   Returns:
+  #     outputs: tensor of shape [..., N]
+  #   """
+  #   dtmValue, knnIndex, weightBound = self.dtm(inputs)
+  #   def grad(dy):
+  #     """"dy: [..., N]."""
+  #     dtmDiff = self.dtm_grad(inputs, dtmValue, knnIndex, weightBound)
+  #     return tf.einsum('...i,...ijk->...jk', dy, dtmDiff)
+  #   return dtmValue, grad
 
-#   def dtm_grad_w(self, inputs, dtmValue, knnIndex, weightBound, index_int, mask):
-#     """TF Graident of With Weighted Distance to measure using KNN.
+  def call(self, inputs, weights=None):
+    """.
 
-#     Args:
-#       inputs: Tensor of shape [..., M, d]
-#       dtmValue: Tensor of shape [..., N]
-#       knnIndex: Tensor of shape [..., N, k]
-#       weightBound: Tensor of shape [..., 1]
-#       index_int: Tensor of shape [..., N, 1]
-#       mask: Tensor of shape [..., N, k-1]
+    Args:
+      inputs: tensor of shape [..., M, d]
 
-#     Returns:
-#       dtmDiff: Tensor of shape [..., N, M]
-#     """
-#     Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
-#     unweightDtmDiff = tf.square(Xa - tf.expand_dims(self.grid, 1))  # [..., N, k, d]
-#     unweightDtmDiff = tf.reduce_sum(unweightDtmDiff, -1)  # [..., N, k]
+    Returns:
+      outputs: tensor of shape [..., N]
+    """
+    dtmValue, knnIndex, weightBound = self.dtm(inputs)
+    return dtmValue
 
-#     # dtmDiff: [..., N, k]
-#     last_dtmDiff = tf.gather(unweightDtmDiff, index_int, batch_dims=len(knnIndex.shape)-1)  # [..., N, 1]
-#     mask_dtmDiff = (unweightDtmDiff[..., :-1] - last_dtmDiff)* mask  # [..., N, k-1]
-#     dtmDiff = tf_scatter(knnIndex[..., :-1], mask_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:-1], batch_dims=len(knnIndex.shape)-1)
 
-#     # dtmDiff: [..., N, M]
-#     dtmValue = tf.expand_dims(dtmValue, -1)  # [..., N, 1]
-#     weightBound = tf.expand_dims(weightBound, -1)  # [..., 1, 1]
-#     dtmDiff = (dtmDiff + self.m0 * last_dtmDiff - self.m0 * tf.square(dtmValue)) / (2 * weightBound * dtmValue)
-#     return dtmDiff
 
-#   # @tf.custom_gradient
-#   # def call(self, inputs, weight):
-#   #   """.
+class DTMWeightLayer(tf.keras.layers.Layer):
 
-#   #   Args:
-#   #     inputs: tensor of shape [..., M, d]
-#   #     weight: tensor of shape [..., M]
+  def __init__(self, 
+               m0=0.3,
+               lims=[[-1., 1.], [-1., 1.]], 
+               by=1, 
+               r=2.0, 
+               name='dtmweightlayer', 
+               **kwargs):
+    super(DTMWeightLayer, self).__init__(name=name)
+    self.m0 = m0
+    self.r = r
+    self.grid, self.grid_size = tf_gridBy(lims, by)
 
-#   #   Returns:
-#   #     outputs: tensor of shape [..., N]
-#   #   """
-#   #   dtmValue, knnIndex, weightBound = self.dtm(inputs, weight)
-#   #   def grad(dy):
-#   #     """"dy: [..., N]."""
-#   #     dtmDiff_x, index_int, mask = self.dtm_grad_x(inputs, weight, dtmValue, knnIndex, weightBound)
-#   #     dtmDiff_w = self.dtm_grad_w(inputs, dtmValue, knnIndex, weightBound, index_int, mask)
-#   #     return tf.einsum('...i,...ijk->...jk', dy, dtmDiff_x), tf.einsum('...i,...ij->...j', dy, dtmDiff_w)
-#   #   return dtmValue, grad
+  def dtm(self, inputs, weight):
+    """TF Weighted Distance to measure using KNN.
 
-#   def call(self, inputs, weight):
-#     """.
+    Args:
+      inputs: Tensor of shape [..., M, d]
+      weight: Tensor of shape [..., M]
 
-#     Args:
-#       inputs: tensor of shape [..., M, d]
-#       weight: tensor of shape [..., M]
+    Returns:
+      dtmValue: Tensor of shape [..., N]
+      knnIndex: Tensor of shape [..., N, k]
+      weightBound: Tensor of shape [..., 1]
+    """
+    weightsort = tf.sort(weight)  # [..., M]
+    weightBound = self.m0 * tf.reduce_sum(weight, -1, keepdims=True)  # [..., 1]
+    weightSumTemp = tf.math.cumsum(weightsort, -1)  # [..., M]
+    index_int = tf.searchsorted(weightSumTemp, weightBound) # [..., 1]
+    max_index_int = tf.reduce_max(index_int) + 1
+    # if (max_index_int <= 0):
+    #   print("max_index_int nonpositive!")
+    #   print(max_index_int)
+    #   print("inputs:")
+    #   print(inputs)
+    #   print("weight:")
+    #   print(weight)
 
-#     Returns:
-#       outputs: tensor of shape [..., N]
-#     """
-#     dtmValue, knnIndex, weightBound = self.dtm(inputs, weight)
-#     return dtmValue
+    knnDistance, knnIndex = tf_knn(inputs, self.grid, tf.cast(max_index_int, tf.int32))
+
+    return tf_dtmFromKnnDistanceWeight(knnDistance, knnIndex, weight, weightBound, self.r), knnIndex, weightBound
+
+  def dtm_grad_x(self, inputs, weight, dtmValue, knnIndex, weightBound):
+    """TF Graident of With Weighted Distance to measure using KNN.
+
+    Args:
+      inputs: Tensor of shape [..., M, d]
+      weight: Tensor of shape [..., M]
+      dtmValue: Tensor of shape [..., N]
+      knnIndex: Tensor of shape [..., N, k]
+      weightBound: Tensor of shape [..., 1]
+
+    Returns:
+      dtmDiff: Tensor of shape [..., N, M, d]
+      index_int: Tensor of shape [..., N, 1]
+      mask: Tensor of shape [..., N, k-1]
+    """
+    weightBound = tf.expand_dims(weightBound, -1) # [..., 1, 1]
+    weightTemp = tf.gather(weight, knnIndex, batch_dims=len(weight.shape)-1)  # [..., N, k]
+    weightSumTemp = tf.math.cumsum(weightTemp, -1)
+    index_int = tf.searchsorted(weightSumTemp, tf.repeat(weightBound, knnIndex.shape[-2], -2))  # [..., N, 1]
+    mask = tf.sequence_mask(tf.squeeze(index_int, -1), dtype=tf.float32)  # [..., N, k]
+
+    weightBound = tf.expand_dims(weightBound, -1)  # [..., 1, 1, 1]
+    weightSumTemp = tf.expand_dims(weightSumTemp, -1)  # [..., N, k, 1] 
+    Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
+    unweightDtmDiff = (Xa - tf.expand_dims(self.grid, 1))  # [..., N, k, d]
+    dtmDiff = tf.expand_dims(weightTemp, -1) * unweightDtmDiff
+    dtmLastValue = tf.gather(dtmDiff + unweightDtmDiff * (weightBound - weightSumTemp), index_int, batch_dims=len(knnIndex.shape)-1)
+    mask_dtmDiff = dtmDiff[..., :-1, :] * tf.expand_dims(mask, -1)
+    sparse_dtmDiff = tf.concat((mask_dtmDiff, dtmLastValue), -2)
+
+    knnLastIndex = tf.gather(knnIndex, index_int, batch_dims=len(knnIndex.shape)-1)
+    sparse_knnIndex = tf.concat((knnIndex[..., :-1], knnLastIndex), -1)
+
+    dtmDiff = tf_scatter(sparse_knnIndex, sparse_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:], batch_dims=len(knnIndex.shape)-1)
+    dtmDiff /= (weightBound * tf.reshape(dtmValue, dtmValue.shape + [1, 1]))
+    return dtmDiff, index_int, mask
+
+  def dtm_grad_w(self, inputs, dtmValue, knnIndex, weightBound, index_int, mask):
+    """TF Graident of With Weighted Distance to measure using KNN.
+
+    Args:
+      inputs: Tensor of shape [..., M, d]
+      dtmValue: Tensor of shape [..., N]
+      knnIndex: Tensor of shape [..., N, k]
+      weightBound: Tensor of shape [..., 1]
+      index_int: Tensor of shape [..., N, 1]
+      mask: Tensor of shape [..., N, k-1]
+
+    Returns:
+      dtmDiff: Tensor of shape [..., N, M]
+    """
+    Xa = tf.gather(inputs, knnIndex, batch_dims=len(knnIndex.shape)-2)
+    unweightDtmDiff = tf.square(Xa - tf.expand_dims(self.grid, 1))  # [..., N, k, d]
+    unweightDtmDiff = tf.reduce_sum(unweightDtmDiff, -1)  # [..., N, k]
+
+    # dtmDiff: [..., N, k]
+    last_dtmDiff = tf.gather(unweightDtmDiff, index_int, batch_dims=len(knnIndex.shape)-1)  # [..., N, 1]
+    mask_dtmDiff = (unweightDtmDiff[..., :-1] - last_dtmDiff)* mask  # [..., N, k-1]
+    dtmDiff = tf_scatter(knnIndex[..., :-1], mask_dtmDiff, knnIndex.shape[:-1] + inputs.shape[-2:-1], batch_dims=len(knnIndex.shape)-1)
+
+    # dtmDiff: [..., N, M]
+    dtmValue = tf.expand_dims(dtmValue, -1)  # [..., N, 1]
+    weightBound = tf.expand_dims(weightBound, -1)  # [..., 1, 1]
+    dtmDiff = (dtmDiff + self.m0 * last_dtmDiff - self.m0 * tf.square(dtmValue)) / (2 * weightBound * dtmValue)
+    return dtmDiff
+
+  # @tf.custom_gradient
+  # def call(self, inputs, weight):
+  #   """.
+
+  #   Args:
+  #     inputs: tensor of shape [..., M, d]
+  #     weight: tensor of shape [..., M]
+
+  #   Returns:
+  #     outputs: tensor of shape [..., N]
+  #   """
+  #   dtmValue, knnIndex, weightBound = self.dtm(inputs, weight)
+  #   def grad(dy):
+  #     """"dy: [..., N]."""
+  #     dtmDiff_x, index_int, mask = self.dtm_grad_x(inputs, weight, dtmValue, knnIndex, weightBound)
+  #     dtmDiff_w = self.dtm_grad_w(inputs, dtmValue, knnIndex, weightBound, index_int, mask)
+  #     return tf.einsum('...i,...ijk->...jk', dy, dtmDiff_x), tf.einsum('...i,...ij->...j', dy, dtmDiff_w)
+  #   return dtmValue, grad
+
+  def call(self, inputs, weight):
+    """.
+
+    Args:
+      inputs: tensor of shape [..., M, d]
+      weight: tensor of shape [..., M]
+
+    Returns:
+      outputs: tensor of shape [..., N]
+    """
+    dtmValue, knnIndex, weightBound = self.dtm(inputs, weight)
+    return dtmValue
 
 
 
 class PersistenceLandscapeLayer(tf.keras.layers.Layer):
+
   def __init__(self, 
                tseq=[0.5, 0.7, 0.9],
                KK=[0,1], 
                grid_size=[3, 3],
                dimensions=[0, 1], 
+               t_const=True,
                dtype='float32',
                name='persistencelandscapelayer', 
                **kwargs):
@@ -401,6 +403,7 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
     self.KK = np.array(KK, dtype=np.int32)
     self.grid_size = grid_size
     self.dimensions = dimensions
+    self.t_const = t_const
 
   def python_op_diag_landscape(self, fun_value):
     """Python domain function to compute landscape.
@@ -416,7 +419,7 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
     """
     # Use gudhi to compute persistence diagram
     # print('fun_value', fun_value.shape, repr(fun_value))
-    cubCpx = gudhi.CubicalComplex(dimensions=self.grid_size, top_dimensional_cells=fun_value)
+    cubCpx = gudhi.CubicalComplex(dimensions=self.grid_size, top_dimensional_cells=fun_value) if self.t_const else gudhi.CubicalComplex(dimensions=self.grid_size, vertices=fun_value)
     pDiag = cubCpx.persistence(homology_coeff_field=2, min_persistence=0)
     # print('pDiag', pDiag)
     location = cubCpx.cofaces_of_persistence_pairs()

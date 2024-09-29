@@ -6,7 +6,7 @@ import numpy as np
 
 
 class CubicalPerslay(tf.keras.layers.Layer):
-    def __init__(self, t_const=True, sublevel=True, interval=[-0.01, 1.01], steps=32, out_features=32, k=2):
+    def __init__(self, t_const=True, sublevel=True, interval=[0, 1], steps=32, out_features=32, k=2):
         super().__init__()
         self.t_const = t_const
         self.sublevel = sublevel
@@ -19,7 +19,7 @@ class CubicalPerslay(tf.keras.layers.Layer):
         grid_bnds = (interval, interval)
         weight = prsl.GridPerslayWeight(grid=grid, grid_bnds=grid_bnds)
         # point transformation
-        phi = prsl.FlatPerslayPhi(np.linspace(self.t_min+0.01, self.t_max-0.01, steps).astype(np.float32), theta=50.)
+        phi = prsl.FlatPerslayPhi(np.linspace(self.t_min, self.t_max, steps).astype(np.float32), theta=50.)
         # permutation invariant op
         perm_op = f"top{k}"
         # postprocessing
