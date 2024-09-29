@@ -724,56 +724,56 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
 
 
 
-# class TopoWeightLayer(tf.keras.layers.Layer):
+class TopoWeightLayer(tf.keras.layers.Layer):
 
-#   def __init__(self, units=10, name='topoWlayer', **kwargs):
-#     super(TopoWeightLayer, self).__init__(name=name)
-#     self.dtm_layer = DTMWeightLayer(**kwargs) #DTMWeightLayer(**kwargs)
-#     self.diagram_layer = PersistenceDiagramLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
-#     self.landscape_layer = PersistenceLandscapeLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
-#     self.g_layer = tf.keras.layers.Dense(units)
+  def __init__(self, units=10, name='topoWlayer', **kwargs):
+    super(TopoWeightLayer, self).__init__(name=name)
+    self.dtm_layer = DTMWeightLayer(**kwargs) #DTMWeightLayer(**kwargs)
+    # self.diagram_layer = PersistenceDiagramLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
+    self.landscape_layer = PersistenceLandscapeLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
+    self.g_layer = tf.keras.layers.Dense(units)
 
-#   def compute_diagram(self, inputs):
-#     X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-#     # step 0 compute distance to measure
-#     dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-#     # step 1 compute persistence diagram
-#     diag = self.diagram_layer(dtmVal)
+  # def compute_diagram(self, inputs):
+  #   X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+  #   # step 0 compute distance to measure
+  #   dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+  #   # step 1 compute persistence diagram
+  #   diag = self.diagram_layer(dtmVal)
 
-#     return diag
+    # return diag
 
-#   def compute_landscape(self, inputs):
-#     X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-#     # step 0 compute distance to measure
-#     dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-#     # step 1 compute persistence diagram and landscape lambda together
-#     land = self.landscape_layer(dtmVal)
+  def compute_landscape(self, inputs):
+    X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+    # step 0 compute distance to measure
+    dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+    # step 1 compute persistence diagram and landscape lambda together
+    land = self.landscape_layer(dtmVal)
 
-#     return land
+    return land
 
-#   def call(self, inputs, weight=None):
-#     """.
+  def call(self, inputs, weight=None):
+    """.
 
-#     Args:
-#       inputs: tensor of shape [..., M]
+    Args:
+      inputs: tensor of shape [..., M]
 
-#     Returns:
-#       outputs: tensor of shape [..., units]
-#     """
-#     # print(inputs.shape, self.dtm_layer.grid.shape, inputs.shape + self.dtm_layer.grid.shape[-1])
-#     X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-#     # print(X.shape, inputs.shape)
-#     # step 0 compute distance to measure
-#     dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-#     # dtmVal = self.dtm_layer(inputs, weight)
-#     # step 1 compute persistence diagram and landscape lambda together
-#     land = self.landscape_layer(dtmVal)
-#     # step 2 compute differential map g_theta: combine dim, tseq, KK axis
-#     g_theta = self.g_layer(tf.reshape(land, land.shape[:-3] + land.shape[-3]*land.shape[-2]*land.shape[-1]))
-#     outputs = g_theta
-#     # outputs = tf.concat((inputs, g_theta), -1)
+    Returns:
+      outputs: tensor of shape [..., units]
+    """
+    # print(inputs.shape, self.dtm_layer.grid.shape, inputs.shape + self.dtm_layer.grid.shape[-1])
+    X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+    # print(X.shape, inputs.shape)
+    # step 0 compute distance to measure
+    dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+    # dtmVal = self.dtm_layer(inputs, weight)
+    # step 1 compute persistence diagram and landscape lambda together
+    land = self.landscape_layer(dtmVal)
+    # step 2 compute differential map g_theta: combine dim, tseq, KK axis
+    g_theta = self.g_layer(tf.reshape(land, land.shape[:-3] + land.shape[-3]*land.shape[-2]*land.shape[-1]))
+    outputs = g_theta
+    # outputs = tf.concat((inputs, g_theta), -1)
     
-#     return outputs
+    return outputs
 
 
 
