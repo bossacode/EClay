@@ -110,18 +110,15 @@ class EcResNet_i(ResNet):
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
     
-    def forward(self, x):
-        x, ecc_dtm005, ecc_dtm02 = x
-        
-        x_1 = self.relu(self.ecc(x))        # ECLayr 1
+    def forward(self, x):        
+        x_1 = self.relu(self.ecc(x))    # ECLayr 1
 
-        x = self.relu(self.res_layer_1(x))  # ResNet
-        x = self.relu(self.res_layer_2(x))
-        x = self.relu(self.res_layer_3(x))
-        x = self.relu(self.res_layer_4(x))
-        x_2 = self.avg_pool(x)
+        x = self.conv(x)
+        x = self.max_pool(x)
+        x = self.res_layer(x)
+        x = self.avg_pool(x)
 
-        x = torch.concat((x_1, x_2), dim=-1)
+        x = torch.concat((x, x_1), dim=-1)
         x = self.fc(x)
         return x
 
