@@ -119,8 +119,8 @@ def weighted_dtm_using_knn(knn_dist, knn_index, weight, bound, r=2):
     k = torch.searchsorted(cum_knn_weight, bound.repeat(1, 1, HW, 1))   # shape: [B, C, (H*W), 1]
     
     # prevent index out of bounds error when some values of k_index equal HW
-    # if (k == HW).any():
-    #     k[k == HW] -= 1
+    if (k == HW).any():
+        k[k == HW] -= 1
 
     if r == 2:
         r_dist = knn_dist.square().view(1, 1, HW, -1).expand(B, C, -1, -1)                  # shape: [B, C, (H*W), max_k]
