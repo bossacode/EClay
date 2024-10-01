@@ -1,0 +1,10 @@
+batch_size: 32
+epochs: 1000
+es_patience: 25
+factor: 0.1
+lr: 0.001
+model_params:
+  in_channels: 1
+  num_classes: 5
+sch_patience: 10
+threshold: 0.001
