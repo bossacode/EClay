@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from train import set_dataloader, train_test, train_test_wandb
-from models import ResNet, EcResNet_i
+from models import ResNet, EcResNet_i, EcResNet
 
 
 # for reproducibility (may degrade performance)
@@ -24,7 +24,7 @@ args = parser.parse_args()
 models = {
     "ResNet": ResNet,
     "EcResNet_i": EcResNet_i,
-    # "EcCnn": EcCnn
+    "EcResNet": EcResNet
     }
 
 
