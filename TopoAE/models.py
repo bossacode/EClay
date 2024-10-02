@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from eclay import ECLay, AlphaECC, RipsECC
+from eclayr.vr.ripseclayr import RipsEcc
 
 
 class AutoEncoder(nn.Module):
@@ -37,7 +37,7 @@ class AutoEncoder(nn.Module):
     def decode(self, x):
         return self.decoder(x)
 
-    def forward(self, x):
+    def forward(self, x, *args, **kwargs):
         """_summary_
 
         Args:
@@ -54,8 +54,7 @@ class AutoEncoder(nn.Module):
 
 class TopoAutoEncoder(nn.Module):
     def __init__(self, in_dim=101, latent_dim=2, hidden_dim=16,     # AE params
-                 interval=[0, 1], steps=64, scale=0.1,              # ECC params
-                #  hidden_features=[32],                              # ECLay params
+                 max_edge_length=2, max_dim=1, steps=32, beta=0.01, # ECC params
                  lam=0.1):
         """_summary_
 
@@ -86,11 +85,10 @@ class TopoAutoEncoder(nn.Module):
         )
         # self.eclay_1 = ECLay(interval, steps, hidden_features, scale, type="Rips")
         # self.eclay_2 = ECLay(interval, steps, hidden_features, scale, type="Rips")
-        # self.eclay_1 = AlphaECC(interval, steps, scale)
-        # self.eclay_2 = AlphaECC(interval, steps, scale)
-        self.eclay_1 = RipsECC(interval, steps, scale)
-        self.eclay_2 = RipsECC(interval, steps, scale)
-        self.loss = nn.MSELoss()
+        self.eclay_1 = RipsEcc(max_edge_length, max_dim, steps, beta)
+        self.eclay_2 = RipsEcc(max_edge_length, max_dim, steps, beta)
+        self.mse_loss = nn.MSELoss()
+        self.mae_loss = nn.L1Loss()
 
     def encode(self, x):
         return self.encoder(x)
@@ -110,14 +108,18 @@ class TopoAutoEncoder(nn.Module):
         # autoencoder
         z = self.encoder(x)
         x_recon = self.decoder(z)
-        # topology layers
-        x_max_norm = torch.sqrt(x.square().sum(1)).max()
-        z_max_norm = torch.sqrt(z.square().sum(1)).max()
-        # normalize point cloud
-        ecc_1 = self.eclay_1(x/x_max_norm)
-        ecc_2 = self.eclay_2(z/z_max_norm)
+        recon_loss = self.mse_loss(x, x_recon)
 
-        recon_loss = self.loss(x, x_recon)
-        topo_loss = self.loss(ecc_1, ecc_2)
+        # topo layer
+        x_centered = x - x.mean(0, keepdim=True)
+        z_centered = z - z.mean(0, keepdim=True)
+        x_max_norm = torch.sqrt(x_centered.square().sum(1)).max()
+        z_max_norm = torch.sqrt(z_centered.square().sum(1)).max()
+        ecc_1 = self.eclay_1((x_centered/x_max_norm).unsqueeze(0)).squeeze(0)
+        ecc_2 = self.eclay_2((z_centered/z_max_norm).unsqueeze(0)).squeeze(0)
+
+        # topo_loss = self.mse_loss(ecc_1, ecc_2)
+        topo_loss = self.mae_loss(ecc_1, ecc_2)
         loss = recon_loss + self.lam*topo_loss
+        
         return x_recon, z, loss, (recon_loss.item(), self.lam*topo_loss.item())

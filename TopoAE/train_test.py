@@ -101,6 +101,7 @@ def eval(model, dataloader, device, plot_latent=False):
         latent = torch.concat(z_list, dim=0)
         labels = torch.concat(y_list, dim=0)
         plt.figure(figsize=(5, 5))
+        plt.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
         plt.scatter(latent[:, 0], latent[:, 1], s=2, c=labels, cmap=mpl.cm.viridis)
         plt.show();
     return avg_loss
