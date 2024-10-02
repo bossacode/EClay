@@ -77,4 +77,4 @@ def preprocess(val_size=0.3, test_size=0.3):
 
 
 if __name__ == "__main__":
-    preprocess(val_size=0.3, test_size=0.7)
+    preprocess(val_size=0.3, test_size=0.9)
