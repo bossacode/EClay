@@ -129,8 +129,8 @@ class EcResNet(ResNet):
                  gtheta_cfg=[32, 64, 32], *args, **kwargs):
         super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
         print(kwargs)
-        self.ecc_1 = ECLayr(size=kwargs["size_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(size=kwargs["size_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], size=kwargs["size_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], size=kwargs["size_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*gtheta_cfg[-1], 64),
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
@@ -140,8 +140,6 @@ class EcResNet(ResNet):
 
         x = self.conv(x)
         x = self.max_pool(x)
-
-        print(x.shape)
 
         # insert ECLay after first res layer
         x_2 = x.mean(dim=1, keepdim=True)

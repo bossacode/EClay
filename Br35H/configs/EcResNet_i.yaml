@@ -2,11 +2,8 @@ batch_size: 64
 epochs: 1000
 es_patience: 25
 factor: 0.1
-lr: 0.005
-lr_topo: 0.005
-# lr_fc: 0.001
-# lr_res: 0.005
-# lr_topo: 0.0001
+lr: 0.01
+lr_topo: 0.0001
 model_params:
   # ResNet params
   in_channels: 1
@@ -24,17 +21,16 @@ model_params:
 
   # ECLayr params
   t_const: False
-  sublevel: True
+  sublevel: False
   size:
-  - 224
-  - 224
+  - 112
+  - 112
   interval:
-  - 0.2
+  - 0.4
   - 1
   steps: 64
   gtheta_cfg:
-  # - 32
   - 64
-  - 32
+  - 64
 sch_patience: 10
 threshold: 0.001
