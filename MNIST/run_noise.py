@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from utils.train import set_dataloader, train_test, train_test_wandb
-from models import Cnn, EcCnnDTM_i, EcCnnDTM
+from models import Cnn, EcCnnDTM_i, EcCnnDTM, SigEcCnnDTM
 
 
 # for reproducibility (may degrade performance)
@@ -24,7 +24,8 @@ args = parser.parse_args()
 models = {
     "Cnn": Cnn,
     "EcCnnDTM_i": EcCnnDTM_i,
-    "EcCnnDTM": EcCnnDTM
+    "EcCnnDTM": EcCnnDTM,
+    "SigEcCnnDTM": SigEcCnnDTM
     }
 
 
