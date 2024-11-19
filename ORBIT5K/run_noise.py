@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from utils.train import set_dataloader, train_test, train_test_wandb
-from models import Cnn, EcCnn_i, EcCnn, EcCnnDTM_i, EcCnnDTM
+from models import Cnn, EcCnnDTM_i, EcCnnDTM, SigEcCnnDTM
 
 
 # for reproducibility (may degrade performance)
@@ -23,10 +23,11 @@ args = parser.parse_args()
 
 models = {
     "Cnn": Cnn,
-    "EcCnn_i": EcCnn_i,
-    "EcCnn": EcCnn,
+    # "EcCnn_i": EcCnn_i,
+    # "EcCnn": EcCnn,
     "EcCnnDTM_i": EcCnnDTM_i,
-    "EcCnnDTM": EcCnnDTM
+    "EcCnnDTM": EcCnnDTM,
+    "SigEcCnnDTM": SigEcCnnDTM
     }
 
 
@@ -51,14 +52,13 @@ def set_optimizer(model, cfg):
 
 if __name__ == "__main__":
     nsim = 15                                   # number of simulations to run
-    cn_prob_list = [0]    # corruption and noise probabilities
-    cn_prob_list = [0.05, 0.1, 0.15, 0.2]    # corruption and noise probabilities
+    cn_prob_list = [0, 0.05, 0.1, 0.15, 0.2]    # corruption and noise probabilities
 
     wandb.login()
 
     # loop over different noise probability
     for p in cn_prob_list:
-        project = "ORBIT5K_noise_shallow"     # used as project name in wandb
+        project = "ORBIT5K_noise"   # used as project name in wandb
 
         print("-"*30)
         print(f"Corruption & noise rate: {p}")

@@ -24,6 +24,6 @@ model_params:
   gtheta_cfg:
   - 32
   - 32
-  beta: 0.01
+  lam: 200
 sch_patience: 10
 threshold: 0.001
