@@ -12,9 +12,9 @@ class Cnn(nn.Module):
     def __init__(self, in_channels=1, num_classes=5):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=4, stride=1, padding="same"),
             nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3, stride=1, padding=1)
+            nn.Conv2d(in_channels=32, out_channels=1, kernel_size=4, stride=1, padding="same")
             )
         self.fc = nn.Sequential(
             nn.Linear(1600, 64),
@@ -92,12 +92,12 @@ class Cnn(nn.Module):
 
 
 class EcCnnDTM_i(Cnn):
-    def __init__(self, in_channels=1, num_classes=5, gtheta_cfg=[32, 32],
+    def __init__(self, in_channels=1, num_classes=5,
                  *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc = ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc = ECLayr(*args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(1600 + gtheta_cfg[-1], 64),
+            nn.Linear(1600 + kwargs["gtheta_cfg"][-1], 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
@@ -118,13 +118,13 @@ class EcCnnDTM_i(Cnn):
 
 
 class EcCnnDTM(Cnn):
-    def __init__(self, in_channels=1, num_classes=5, gtheta_cfg=[32, 32],
+    def __init__(self, in_channels=1, num_classes=5,
                  *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], steps=kwargs["steps_one"], gtheta_cfg=kwargs["gtheta_cfg_one"], *args, **kwargs)
+        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], steps=kwargs["steps_two"], gtheta_cfg=kwargs["gtheta_cfg_two"], *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(1600 + 2*gtheta_cfg[-1], 64),
+            nn.Linear(1600 + kwargs["gtheta_cfg_one"][-1] + kwargs["gtheta_cfg_two"][-1], 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )

@@ -1,6 +1,6 @@
-batch_size: 32
+batch_size: 16
 epochs: 1000
-es_patience: 25
+es_patience: 3
 factor: 0.1
 lr: 0.001
 lr_topo: 0.001
@@ -17,9 +17,9 @@ model_params:
   interval:
   - 0.03
   - 0.1
-  steps: 32
+  steps: 17
   gtheta_cfg:
-  - 32
-  - 32
+  - 17
+  - 64
 sch_patience: 10
 threshold: 0.001
