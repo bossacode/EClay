@@ -170,7 +170,7 @@ class DTMLayer(nn.Module):
         knn_dist, knn_index = dist.topk(k, largest=False, dim=-1)   # shape: [B, (H*W), k]
         # dtm
         dtm_val = dtm_using_knn(knn_dist, bound, self.r)            # shape: [B, (H*W)]
-        return dtm_val.view(x.shape[0], *self.size)                 # shape: [B, H, W]
+        return dtm_val.view(x.shape[0], *self.size).unsqueeze(1)    # shape: [B, 1, H, W]
 
 
 class WeightedDTMLayer(nn.Module):
