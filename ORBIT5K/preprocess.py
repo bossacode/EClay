@@ -108,4 +108,4 @@ if __name__ == "__main__":
     # n_train_list = [100, 300, 500, 700, 1000]     # number of training samples
 
     torch.manual_seed(123)
-    generate_data(val_size=0.3, test_size=0.3, noise_prob_list=noise_prob_list)
+    generate_data(val_size=0.1, test_size=0.3, noise_prob_list=noise_prob_list)
