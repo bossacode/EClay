@@ -3,7 +3,7 @@ sys.path.append("../")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from eclayr.cubical.cubeclayr import ECLayr
+from eclayr.cubical.cubeclayr import ECLayr, SigECLayr
 
 
 # ResNet
@@ -131,6 +131,36 @@ class EcResNet(ResNet):
         print(kwargs)
         self.ecc_1 = ECLayr(interval=kwargs["interval_one"], size=kwargs["size_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.ecc_2 = ECLayr(interval=kwargs["interval_two"], size=kwargs["size_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*gtheta_cfg[-1], 64),
+                        nn.ReLU(),
+                        nn.Linear(64, num_classes))
+    
+    def forward(self, x):
+        x_1 = self.relu(self.ecc_1(x))      # ECLayr 1
+
+        x = self.conv(x)
+        x = self.max_pool(x)
+
+        # insert ECLay after first res layer
+        x_2 = x.mean(dim=1, keepdim=True)
+        x_2 = (x_2 - x_2.min().item()) / (x_2.max().item() - x_2.min().item())   # normalize x_1 between 0 and 1
+        x_2 = self.relu(self.ecc_2(x_2))    # ECLayr 2
+
+        x = self.res_layer(x)
+        x = self.avg_pool(x)
+        
+        x = torch.concat((x, x_1, x_2), dim=-1)
+        x = self.fc(x)
+        return x
+    
+
+class SigEcResNet(ResNet):
+    def __init__(self, in_channels=1, num_classes=2, block_cfg=[2, 2, 2, 2], filter_cfg=[64, 128, 256, 512], block=ResidualBlock,      # ResNet params
+                 gtheta_cfg=[32, 64, 32], *args, **kwargs):
+        super().__init__(in_channels, num_classes, block_cfg, filter_cfg, block)
+        print(kwargs)
+        self.ecc_1 = SigECLayr(interval=kwargs["interval_one"], size=kwargs["size_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.ecc_2 = SigECLayr(interval=kwargs["interval_two"], size=kwargs["size_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
         self.fc = nn.Sequential(nn.Linear(filter_cfg[-1] + 2*gtheta_cfg[-1], 64),
                         nn.ReLU(),
                         nn.Linear(64, num_classes))
