@@ -153,7 +153,7 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
             wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
                     "val":{"loss":val_loss, "accuracy":val_acc},
                     "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
-        if stop:
+        if stop or n_epoch == cfg["epochs"]:
             if log_metric:
                 end = time()
                 wandb.log({"training_time": end - start})
