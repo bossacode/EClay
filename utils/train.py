@@ -9,13 +9,13 @@ import wandb
 
 class CustomDataset(Dataset):
     def __init__(self, file_path):
-        self.x, self.x_dtm_1, self.x_dtm_2, self.y = torch.load(file_path, weights_only=True)
+        self.x, self.x_dtm, self.y = torch.load(file_path, weights_only=True)
         
     def __len__(self):
         return len(self.y)
 
     def __getitem__(self, idx):
-        return self.x[idx], self.x_dtm_1[idx], self.x_dtm_2[idx], self.y[idx]
+        return self.x[idx], self.x_dtm[idx], self.y[idx]
 
 
 def set_dataloader(train_file_path, val_file_path, test_file_path, batch_size):
@@ -64,7 +64,7 @@ class EarlyStopping:
             return not stop, not improvement
 
 
-def train(model, dataloader, loss_fn, optimizer, device):
+def train(model, dataloader, loss_fn, optim, device):
     """
     train for 1 epoch
     """
@@ -79,8 +79,8 @@ def train(model, dataloader, loss_fn, optimizer, device):
         correct += (y_pred.argmax(1) == y).sum().item()
 
         loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        optim.step()
+        optim.zero_grad()
 
         if batch % 10 == 1:
             print(f"Training loss: {loss.item():>7f} [{batch*len(y):>3d}/{data_size:>3d}]")
@@ -118,15 +118,23 @@ def test(model, dataloader, loss_fn, device):
 
 
 def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
+    # set loss function
     loss_fn = nn.CrossEntropyLoss()
-    scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
-                                  factor=cfg["factor"], patience=cfg["sch_patience"], threshold=cfg["threshold"], verbose=True)
+
+    # set learning rate scheduler
+    try:
+        scheduler = ReduceLROnPlateau(optim, mode="min" if val_metric == "loss" else "max",
+                                      factor=cfg["factor"], patience=cfg["sch_patience"], threshold=cfg["threshold"], verbose=True)
+    except KeyError:
+        scheduler = None
+        print("No learning rate scheduler.")
+        
+    # set early stopping
     es = EarlyStopping(cfg["es_patience"], cfg["threshold"], val_metric=val_metric)
 
+    # train
     if log_grad:
         wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
-
-    # train
     if log_metric:
         start = time()
     for n_epoch in range(1, cfg["epochs"]+1):
@@ -136,7 +144,8 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
         train_loss, train_acc = train(model, train_dl, loss_fn, optim, cfg["device"])
         val_loss, val_acc = test(model, val_dl, loss_fn, cfg["device"])
 
-        scheduler.step(val_loss if val_metric == "loss" else val_acc)
+        if scheduler:
+            scheduler.step(val_loss if val_metric == "loss" else val_acc)
 
         # early stopping
         stop, improvement = es.stop_training(val_loss, val_acc, n_epoch)
