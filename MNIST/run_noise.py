@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from utils.train import set_dataloader, train_test, train_test_wandb
-from models import Cnn, EcCnnDTM_i, EcCnnDTM, SigEcCnnDTM
+from models import Cnn, EcCnn_i, EcCnn
 
 
 # for reproducibility (may degrade performance)
@@ -21,42 +21,30 @@ parser.add_argument("model", help="Name of model to train")
 args = parser.parse_args()
 
 
-models = {
+model_dict = {
     "Cnn": Cnn,
-    "EcCnnDTM_i": EcCnnDTM_i,
-    "EcCnnDTM": EcCnnDTM,
-    "SigEcCnnDTM": SigEcCnnDTM
+    "EcCnnDTM_i": EcCnn_i,
+    "EcCnnDTM": EcCnn,
+    # "SigEcCnnDTM": SigEcCnn
     }
 
 
 # load configuration file needed for training model
 with open(f"configs/{args.model}.yaml", "r") as f:
     cfg = yaml.load(f, yaml.FullLoader)
+# add device to configuration file
 cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def set_optimizer(model, cfg):
-    param_list = []
-    for name, layer in model.named_children():
-        if "ecc" in name:   # set lr for all ECLayr
-            print("name: ",name, "lr: ", cfg["lr_topo"])
-            param_list.append({"params": layer.parameters(), "lr": cfg["lr_topo"]})
-        else:
-            print("name: ",name, "lr: ", cfg["lr"])
-            param_list.append({"params": layer.parameters(), "lr": cfg["lr"]})
-    optim = Adam(param_list, lr=cfg["lr"], weight_decay=0.0001)
-    return optim
-
-
 if __name__ == "__main__":
-    nsim = 15                                       # number of simulations to run
-    cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
+    nsim = 15                               # number of simulations to run
+    cn_prob_list = [0.05, 0.1, 0.15, 0.2]   # corruption and noise probabilities
 
     wandb.login()
 
     # loop over different noise probability
     for p in cn_prob_list:
-        project = "MNIST_noise_shallow"     # used as project name in wandb
+        project = "MNIST_noise"     # used as project name in wandb
 
         print("-"*30)
         print(f"Corruption & noise rate: {p}")
@@ -79,9 +67,7 @@ if __name__ == "__main__":
         
             train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{prob}/train.pt", data_dir + f"{prob}/val.pt", data_dir + f"{prob}/test.pt", cfg["batch_size"])
 
-            model = models[args.model](**cfg["model_params"]).to(cfg["device"])
-            # optim = Adam(model.parameters(), lr=cfg["lr"])
-            optim = set_optimizer(model, cfg)
-            print(optim)
+            model = model_dict[args.model](**cfg["model_params"]).to(cfg["device"])
+            optim = Adam(model.parameters(), lr=cfg["lr"])
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
             # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
