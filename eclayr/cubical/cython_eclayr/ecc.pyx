@@ -39,8 +39,6 @@ cdef class EccBackbone:
     @cython.wraparound(False)       # turn off negative index wrapping for entire function
     @cython.cdivision(True)         # turn off checking for division by zero
     @cython.initializedcheck(False) # turn off initialization check
-    # def cal_ecc_vtx(self, object x, bint backprop):
-    # def cal_ecc_vtx(self, cnp.ndarray[cnp.float32_t, ndim=4] x, bint backprop):
     def cal_ecc_vtx(self, float[:, :, :, :] x, bint backprop):
         """_summary_
 
@@ -195,8 +193,7 @@ cdef class EccBackbone:
     @cython.wraparound(False)       # turn off negative index wrapping for entire function
     @cython.cdivision(True)         # turn off checking for division by zero
     @cython.initializedcheck(False) # turn off initialization check
-    # def cal_ecc_topdim(self, object x, bint backprop):
-    def cal_ecc_topdim(self, cnp.ndarray[cnp.float32_t, ndim=4] x, bint backprop):
+    def cal_ecc_topdim(self, float[:, :, :, :] x, bint backprop):
         """_summary_
 
         Args:
