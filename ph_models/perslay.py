@@ -6,9 +6,10 @@ import numpy as np
 
 
 class CubicalPerslay(tf.keras.layers.Layer):
-    def __init__(self, t_const=True, sublevel=True, interval=[0, 1], steps=32, out_features=32, k=2, **kwargs):
+    def __init__(self, interval=[0., 1.], steps=32, constr="V", sublevel=True, k=2,
+                 *args, **kwargs):
         super().__init__()
-        self.t_const = t_const
+        self.constr = constr
         self.sublevel = sublevel
         interval = interval if sublevel else [-i for i in reversed(interval)]
         self.t_min, self.t_max = interval
@@ -25,7 +26,7 @@ class CubicalPerslay(tf.keras.layers.Layer):
         # postprocessing
         rho = tf.identity
         self.perslay = prsl.Perslay(weight=weight, phi=phi, perm_op=perm_op, rho=rho)
-        self.fc = Dense(out_features)
+        self.fc = Dense(32)
     
     def call(self, x):
         """_summary_
@@ -43,10 +44,10 @@ class CubicalPerslay(tf.keras.layers.Layer):
         x = x if self.sublevel else -x
         for b in range(batch_size):
             for c in range(num_channels):
-                cub_cpx = gd.CubicalComplex(top_dimensional_cells=x[b, :, :, c]) if self.t_const else gd.CubicalComplex(vertices=x[b, :, :, c])
-                diags = cub_cpx.persistence()
+                cub_cpx = gd.CubicalComplex(vertices=x[b, :, :, c]) if self.constr=="V" else gd.CubicalComplex(top_dimensional_cells=x[b, :, :, c])
+                diag = cub_cpx.persistence()
                 for dim in range(2):
-                    dim_diag = np.array([pair[1] for pair in diags if pair[0] == dim and pair[1][0] > self.t_min and pair[1][1] < self.t_max], dtype=np.float32)
+                    dim_diag = np.array([pair[1] for pair in diag if pair[0] == dim and pair[1][0] > self.t_min and pair[1][1] < self.t_max], dtype=np.float32)
                     num_hom = len(dim_diag)             # number of homology features in dimension "dim"
                     if num_hom < self.k:                # concatenate zero arrays if there are less than k homology features
                         if num_hom == 0:
@@ -55,6 +56,6 @@ class CubicalPerslay(tf.keras.layers.Layer):
                     dim_diag = tf.RaggedTensor.from_tensor(dim_diag[None, :])
                     diag_list.append(dim_diag)
         diags = tf.concat(diag_list, axis=0)
-        vector = self.perslay(diags)
-        vector = tf.reshape(vector, (batch_size, -1))   # size: (B, C*k*2*steps)
-        return self.fc(vector)
+        pers = self.perslay(diags)
+        pers = tf.reshape(pers, (batch_size, -1))   # size: (B, C*k*2*steps)
+        return self.fc(pers)

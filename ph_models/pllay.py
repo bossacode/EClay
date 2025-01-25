@@ -393,17 +393,17 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
                KK=[0,1], 
                grid_size=[3, 3],
                dimensions=[0, 1], 
-               t_const=True,
+               constr="V",
                dtype='float32',
                name='persistencelandscapelayer', 
-               **kwargs):
+               *args, **kwargs):
     super(PersistenceLandscapeLayer, self).__init__(name=name)
     self.dtype == dtype
     self.tseq = np.array(tseq, dtype=dtype)
     self.KK = np.array(KK, dtype=np.int32)
     self.grid_size = grid_size
     self.dimensions = dimensions
-    self.t_const = t_const
+    self.constr = constr
 
   def python_op_diag_landscape(self, fun_value):
     """Python domain function to compute landscape.
@@ -419,7 +419,7 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
     """
     # Use gudhi to compute persistence diagram
     # print('fun_value', fun_value.shape, repr(fun_value))
-    cubCpx = gudhi.CubicalComplex(dimensions=self.grid_size, top_dimensional_cells=fun_value) if self.t_const else gudhi.CubicalComplex(dimensions=self.grid_size, vertices=fun_value)
+    cubCpx = gudhi.CubicalComplex(dimensions=self.grid_size, vertices=fun_value) if self.constr=="V" else gudhi.CubicalComplex(dimensions=self.grid_size, top_dimensional_cells=fun_value)
     pDiag = cubCpx.persistence(homology_coeff_field=2, min_persistence=0)
     # print('pDiag', pDiag)
     location = cubCpx.cofaces_of_persistence_pairs()
@@ -724,56 +724,56 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
 
 
 
-class TopoWeightLayer(tf.keras.layers.Layer):
+# class TopoWeightLayer(tf.keras.layers.Layer):
 
-  def __init__(self, units=10, name='topoWlayer', **kwargs):
-    super(TopoWeightLayer, self).__init__(name=name)
-    self.dtm_layer = DTMWeightLayer(m0=0.05, lims=[[-0.5, 0.5],[-0.5, 0.5]], by=1/(kwargs["grid_size"][0]-1), **kwargs) #DTMWeightLayer(**kwargs)
-    # self.diagram_layer = PersistenceDiagramLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
-    self.landscape_layer = PersistenceLandscapeLayer(**kwargs)
-    self.g_layer = tf.keras.layers.Dense(units)
+#   def __init__(self, units=10, name='topoWlayer', **kwargs):
+#     super(TopoWeightLayer, self).__init__(name=name)
+#     self.dtm_layer = DTMWeightLayer(m0=0.05, lims=[[-0.5, 0.5],[-0.5, 0.5]], by=1/(kwargs["grid_size"][0]-1), **kwargs) #DTMWeightLayer(**kwargs)
+#     # self.diagram_layer = PersistenceDiagramLayer(grid_size=self.dtm_layer.grid_size, **kwargs)
+#     self.landscape_layer = PersistenceLandscapeLayer(**kwargs)
+#     self.g_layer = tf.keras.layers.Dense(units)
 
-  # def compute_diagram(self, inputs):
-  #   X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-  #   # step 0 compute distance to measure
-  #   dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-  #   # step 1 compute persistence diagram
-  #   diag = self.diagram_layer(dtmVal)
+#   # def compute_diagram(self, inputs):
+#   #   X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+#   #   # step 0 compute distance to measure
+#   #   dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+#   #   # step 1 compute persistence diagram
+#   #   diag = self.diagram_layer(dtmVal)
 
-    # return diag
+#     # return diag
 
-  def compute_landscape(self, inputs):
-    X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-    # step 0 compute distance to measure
-    dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-    # step 1 compute persistence diagram and landscape lambda together
-    land = self.landscape_layer(dtmVal)
+#   def compute_landscape(self, inputs):
+#     X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+#     # step 0 compute distance to measure
+#     dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+#     # step 1 compute persistence diagram and landscape lambda together
+#     land = self.landscape_layer(dtmVal)
 
-    return land
+#     return land
 
-  def call(self, inputs, weight=None):
-    """.
+#   def call(self, inputs, weight=None):
+#     """.
 
-    Args:
-      inputs: tensor of shape [..., M]
+#     Args:
+#       inputs: tensor of shape [..., M]
 
-    Returns:
-      outputs: tensor of shape [..., units]
-    """
-    # print(inputs.shape, self.dtm_layer.grid.shape, inputs.shape + self.dtm_layer.grid.shape[-1])
-    X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
-    # print(X.shape, inputs.shape)
-    # step 0 compute distance to measure
-    dtmVal = self.dtm_layer(inputs=X, weight=inputs)
-    # dtmVal = self.dtm_layer(inputs, weight)
-    # step 1 compute persistence diagram and landscape lambda together
-    land = self.landscape_layer(dtmVal)
-    # step 2 compute differential map g_theta: combine dim, tseq, KK axis
-    g_theta = self.g_layer(tf.reshape(land, land.shape[:-3] + land.shape[-3]*land.shape[-2]*land.shape[-1]))
-    outputs = g_theta
-    # outputs = tf.concat((inputs, g_theta), -1)
+#     Returns:
+#       outputs: tensor of shape [..., units]
+#     """
+#     # print(inputs.shape, self.dtm_layer.grid.shape, inputs.shape + self.dtm_layer.grid.shape[-1])
+#     X = tf.broadcast_to(self.dtm_layer.grid, inputs.shape + self.dtm_layer.grid.shape[-1])
+#     # print(X.shape, inputs.shape)
+#     # step 0 compute distance to measure
+#     dtmVal = self.dtm_layer(inputs=X, weight=inputs)
+#     # dtmVal = self.dtm_layer(inputs, weight)
+#     # step 1 compute persistence diagram and landscape lambda together
+#     land = self.landscape_layer(dtmVal)
+#     # step 2 compute differential map g_theta: combine dim, tseq, KK axis
+#     g_theta = self.g_layer(tf.reshape(land, land.shape[:-3] + land.shape[-3]*land.shape[-2]*land.shape[-1]))
+#     outputs = g_theta
+#     # outputs = tf.concat((inputs, g_theta), -1)
     
-    return outputs
+#     return outputs
 
 
 
