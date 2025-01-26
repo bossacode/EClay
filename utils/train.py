@@ -135,8 +135,7 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
     # train
     if log_grad:
         wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
-    if log_metric:
-        start = time()
+    start = time()
     for n_epoch in range(1, cfg["epochs"]+1):
         print(f"\nEpoch: [{n_epoch} / {cfg['epochs']}]")
         print("-"*30)
@@ -154,9 +153,11 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
                     "val":{"loss":val_loss, "accuracy":val_acc},
                     "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
         if stop or n_epoch == cfg["epochs"]:
+            end = time()
+            training_time = end - start
+            print(f"\nTraining time: {training_time}\n")
             if log_metric:
-                end = time()
-                wandb.log({"training_time": end - start})
+                wandb.log({"training_time": training_time})
                 wandb.log({"best_epoch": es.best_epoch})
             if weight_path is not None:
                 torch.save(model_state_dict, weight_path)   # save model weights
@@ -167,7 +168,6 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
 
 def train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
     train_val(model, cfg, optim, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
-    
     # test
     loss_fn = nn.CrossEntropyLoss()
     model.load_state_dict(torch.load(weight_path, map_location=cfg["device"], weights_only=True))
