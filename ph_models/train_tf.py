@@ -5,15 +5,15 @@ import torch
 from sklearn.metrics import classification_report
 from time import time
 import wandb
+from utils.train import EarlyStopping
 
 
 def permute_dataset(dataset):
-    x, x_005, x_002, y = dataset
+    x, x_dtm, y = dataset
     x = x.permute(0, 2, 3, 1)
-    x_005 = x_005.permute(0, 2, 3, 1)
-    x_002 = x_002.permute(0, 2, 3, 1)
-    dataset = tf.data.Dataset.from_tensor_slices((x, x_005, x_002, y))
-    return dataset.shuffle(100, seed=123)
+    x_dtm = x_dtm.permute(0, 2, 3, 1)
+    dataset = tf.data.Dataset.from_tensor_slices((x, x_dtm, y))
+    return dataset.shuffle(100, reshuffle_each_iteration=True, seed=123)
 
 
 def set_dataloader(train_file_path, val_file_path, test_file_path, batch_size):
@@ -47,40 +47,6 @@ class ReduceLROnPlateau:
                 print("Reducing learning rate to: ", optim.lr.numpy())
                 print("-" * 100)
                 self.count = 0
-
-
-class EarlyStopping:
-    def __init__(self, patience, threshold, val_metric="loss"):
-        """_summary_
-
-        Args:
-            patience (_type_): _description_
-            threshold (_type_): _description_
-            val_metric (str, optional): _description_. Defaults to "loss".
-        """
-        self.patience = patience
-        self.threshold = threshold
-        self.count = 0
-        self.best_loss, self.best_acc, self.best_epoch = float("inf"), 0, None
-        self.val_metic = val_metric
-
-    def stop_training(self, val_loss, val_acc, epoch):
-        stop, improvement = True, True
-        diff = (self.best_loss - val_loss) if self.val_metic == "loss" else (val_acc - self.best_acc)
-        if diff > self.threshold:   # improvement needs to be above threshold 
-            self.count = 0
-            self.best_loss, self.best_acc, self.best_epoch = val_loss, val_acc, epoch
-            return not stop, improvement
-        else:
-            self.count += 1
-            if self.count > self.patience:  # stop training if no improvement for patience + 1 epochs
-                print("-"*30)
-                print(f"Best Epoch: {self.best_epoch}")
-                print(f"Best Validation Accuracy: {(self.best_acc):>0.1f}%")
-                print(f"Best Validation Loss: {self.best_loss:>8f}")
-                print("-"*30)
-                return stop, not improvement
-            return not stop, not improvement
 
 
 def train(model, dataloader, loss_fn, optimizer):
@@ -130,16 +96,23 @@ def test(model, dataloader, loss_fn):
 
 
 def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
+    # set loss function
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-    es = EarlyStopping(cfg["es_patience"], cfg["threshold"], val_metric=val_metric)
-    scheduler = ReduceLROnPlateau(cfg["factor"], cfg["sch_patience"], cfg["threshold"])
 
+    # set learning rate scheduler
+    try:
+        scheduler = ReduceLROnPlateau(cfg["factor"], cfg["sch_patience"], cfg["threshold"])
+    except KeyError:
+        scheduler = None
+        print("No learning rate scheduler.")
+
+    # set early stopping
+    es = EarlyStopping(cfg["es_patience"], cfg["threshold"], val_metric=val_metric)
+    
+    # train
     if log_grad:
         wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
-
-    # train
-    if log_metric:
-        start = time()
+    start = time()
     for n_epoch in range(1, cfg["epochs"]+1):
         print(f"\nEpoch: [{n_epoch} / {cfg['epochs']}]")
         print("-"*30)
@@ -147,7 +120,8 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
         train_loss, train_acc = train(model, train_dl, loss_fn, optim)
         val_loss, val_acc = test(model, val_dl, loss_fn)
 
-        scheduler.reduce_lr(val_loss, optim)
+        if scheduler:
+            scheduler.reduce_lr(val_loss, optim)
 
         # early stopping
         stop, improvement = es.stop_training(val_loss, val_acc, n_epoch)
@@ -155,10 +129,12 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
             wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
                     "val":{"loss":val_loss, "accuracy":val_acc},
                     "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
-        if stop:
+        if stop or n_epoch == cfg["epochs"]:
+            end = time()
+            training_time = end - start
+            print(f"\nTraining time: {training_time}\n")
             if log_metric:
-                end = time()
-                wandb.log({"training_time": end - start})
+                wandb.log({"training_time": training_time})
                 wandb.log({"best_epoch": es.best_epoch})
             if weight_path is not None:
                 np.savez(weight_path, *models_weights)
@@ -169,14 +145,11 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
 
 def train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
     train_val(model, cfg, optim, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
-    
     # test
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-
     loaded = np.load(weight_path)
     loaded_weights = [loaded[key] for key in loaded.files]
     model.set_weights(loaded_weights)
-    
     test_loss, test_acc = test(model, test_dl, loss_fn)
     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
