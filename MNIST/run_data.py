@@ -1,5 +1,3 @@
-import sys
-sys.path.append("../")
 import torch
 from torch.optim import Adam
 import os
@@ -38,15 +36,13 @@ cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 if __name__ == "__main__":
     nsim = 15                                       # number of simulations to run
-    # train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
-    train_size_list = [100, 1000]
+    train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
 
     wandb.login()
 
     # loop over different training size
     for train_size in train_size_list:
-        # project = "MNIST_data"      # used as project name in wandb
-        project = "test"
+        project = "MNIST_data"  # used as project name in wandb
         
         print("-"*30)
         print(f"Number of training data: {train_size}")

@@ -1,5 +1,3 @@
-import sys
-sys.path.append("../")
 import torch
 from torch.optim import Adam
 import os
@@ -44,7 +42,7 @@ if __name__ == "__main__":
 
     # loop over different noise probability
     for p in cn_prob_list:
-        project = "MNIST_noise"     # used as project name in wandb
+        project = "MNIST_noise" # used as project name in wandb
 
         print("-"*30)
         print(f"Corruption & noise rate: {p}")
@@ -66,7 +64,6 @@ if __name__ == "__main__":
             name = f"sim{sim}"                          # used for specifying runs in wandb
         
             train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{prob}/train.pt", data_dir + f"{prob}/val.pt", data_dir + f"{prob}/test.pt", cfg["batch_size"])
-
             model = model_dict[args.model](**cfg["model_params"]).to(cfg["device"])
             optim = Adam(model.parameters(), lr=cfg["lr"])
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
