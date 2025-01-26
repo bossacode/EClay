@@ -1,9 +1,9 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Dense, ReLU, MaxPooling2D, Flatten
+from tensorflow.keras.layers import Conv2D, Dense, ReLU, Flatten
 from tensorflow.keras import Sequential
 import numpy as np
 from perslay import CubicalPerslay
-from pllay import PersistenceLandscapeLayer, TopoWeightLayer
+from pllay import PersistenceLandscapeLayer
 
 
 # Cnn
@@ -22,7 +22,7 @@ class Cnn(tf.keras.Model):
         self.flatten = Flatten()
 
     def call(self, x):
-        x, x_dtm005, x_dtm02 = x
+        x, x_dtm = x
         x = self.conv(x)
         x = tf.nn.relu(x)
         x = self.flatten(x)
@@ -30,267 +30,110 @@ class Cnn(tf.keras.Model):
         return 
 
 
-# class Cnn(tf.keras.Model):
-#     def __init__(self, num_classes=10):
-#         super().__init__()
-#         self.conv1 = Conv2D(filters=64, kernel_size=3, strides=1, padding='valid')
-#         self.conv2 = Conv2D(filters=128, kernel_size=3, strides=1, padding='valid')
-#         self.conv3 = Conv2D(filters=256, kernel_size=3, strides=1, padding='valid')
-        
-#         self.fc = Sequential([
-#             Dense(64, activation='relu'),
-#             Dense(num_classes)
-#         ])
-#         self.pool = MaxPooling2D(pool_size=2, strides=2)
-#         self.flatten = Flatten()
-
-#     def call(self, x):
-#         x, x_dtm005, x_dtm02 = x
-#         x = self.conv1(x)               # output shape: (None, 26, 26, 64)
-#         x = self.pool(tf.nn.relu(x))    # output shape: (None, 13, 13, 64)
-#         x = self.conv2(x)               # output shape: (None, 11, 11, 128)
-#         x = self.pool(tf.nn.relu(x))    # output shape: (None, 5, 5, 128)
-#         x = self.conv3(x)               # output shape: (None, 3, 3, 256)
-#         x = self.pool(tf.nn.relu(x))    # output shape: (None, 1, 1, 256)
-#         x = self.flatten(x)
-#         x = self.fc(x)
-#         return x
-
-
 class PersCnn(Cnn):
     def __init__(self, num_classes=10, *args, **kwargs):
         super().__init__()
+        self.perslay = CubicalPerslay(*args, **kwargs)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
         ])
-        self.perslay = CubicalPerslay(*args, **kwargs)
 
     def call(self, x):
-        x, x_dtm005, x_dtm02 = x
+        x, x_dtm = x
 
         # Perslay
-        x_1 = tf.nn.relu(self.perslay(x))
+        pers = self.perslay(x_dtm)
+        pers = tf.nn.relu(pers)
 
-        # x = self.conv1(x)               # output shape: (None, 26, 26, 64)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 13, 13, 64)
-        # x = self.conv2(x)               # output shape: (None, 11, 11, 128)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 5, 5, 128)
-        # x = self.conv3(x)               # output shape: (None, 3, 3, 256)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 1, 1, 256)
-        # x = self.flatten(x)
-
+        # CNN
         x = self.conv(x)
         x = tf.nn.relu(x)
         x = self.flatten(x)
         
-        x = tf.concat((x, x_1), axis=-1)
-        x = self.fc(x)
-        return x
-
-
-class PersCnnDTM(Cnn):
-    def __init__(self, num_classes=10,
-                 *args, **kwargs):
-        super().__init__()
-        self.fc = Sequential([
-            Dense(64, activation='relu'),
-            Dense(num_classes)
-        ])
-        self.perslay_1 = CubicalPerslay(interval=kwargs["interval_one"], *args, **kwargs)
-        self.perslay_2 = CubicalPerslay(interval=kwargs["interval_two"], *args, **kwargs)
-
-    def call(self, x):
-        x, x_dtm005, x_dtm02 = x
-
-        # Perslay 1
-        x_1 = tf.nn.relu(self.perslay_1(x_dtm005))
-
-        # Perslay 2
-        x_2 = tf.nn.relu(self.perslay_2(x_dtm02))
-
-        # x = self.conv1(x)               # output shape: (None, 26, 26, 64)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 13, 13, 64)
-        # x = self.conv2(x)               # output shape: (None, 11, 11, 128)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 5, 5, 128)
-        # x = self.conv3(x)               # output shape: (None, 3, 3, 256)
-        # x = self.pool(tf.nn.relu(x))    # output shape: (None, 1, 1, 256)
-        # x = self.flatten(x)
-
-        x = self.conv(x)
-        x = tf.nn.relu(x)
-        x = self.flatten(x)
-        
-        x = tf.concat((x, x_1, x_2), axis=-1)
+        x = tf.concat((x, pers), axis=-1)
         x = self.fc(x)
         return x
 
 
 class PlCnn_i(Cnn):
-    def __init__(self, num_classes=10, **kwargs):
+    def __init__(self, num_classes=10, *args, **kwargs):
         super().__init__()
         self.sublevel = kwargs["sublevel"]
         interval = kwargs["interval"]
         interval = interval if self.sublevel else [-i for i in reversed(interval)]
         tseq = np.linspace(*interval, kwargs["steps"])
         
+        self.pllay = PersistenceLandscapeLayer(tseq=tseq ,*args, **kwargs)
+        self.gtheta = Dense(32)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
         ])
-        self.pllay = PersistenceLandscapeLayer(tseq=tseq ,**kwargs)
-        self.gtheta = Dense(kwargs["out_features"])
 
     def call(self, x):
-        x, x_dtm005, x_dtm02 = x
+        x, x_dtm = x
 
         # Pllay
-        x_1 = x if self.sublevel else -x    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_1 = self.pllay(self.flatten(x_1))
-        x_1 = self.flatten(x_1)
-        x_1 = tf.nn.relu(self.gtheta(x_1))
+        pl = self.pllay(self.flatten(x_dtm if self.sublevel else -x_dtm))   # apply sublevel filtration on -x to obtain superlevel filtration
+        pl = self.gtheta(self.flatten(pl))
+        pl = tf.nn.relu(pl)
 
+        # CNN
         x = self.conv(x)
         x = tf.nn.relu(x)
         x = self.flatten(x)
         
-        x = tf.concat((x, x_1), axis=-1)
+        x = tf.concat((x, pl), axis=-1)
         x = self.fc(x)
         return x
 
 
 class PlCnn(Cnn):
-    def __init__(self, num_classes=10, **kwargs):
+    def __init__(self, num_classes=10, *args, **kwargs):
         super().__init__()
-        self.sublevel = kwargs["sublevel"]
-        interval = kwargs["interval"]
-        interval = interval if self.sublevel else [-i for i in reversed(interval)]
-        tseq = np.linspace(*interval, kwargs["steps"])
-        
-        self.fc = Sequential([
-            Dense(64, activation='relu'),
-            Dense(num_classes)
-        ])
-        self.pllay_1 = PersistenceLandscapeLayer(tseq=tseq ,**kwargs)
-        self.gtheta_1 = Dense(kwargs["out_features"])
-        self.pllay_2 = PersistenceLandscapeLayer(tseq=tseq ,**kwargs)
-        self.gtheta_2 = Dense(kwargs["out_features"])
-
-    def call(self, x):
-        x, x_dtm005, x_dtm02 = x
-
-        # Pllay 1
-        x_1 = x if self.sublevel else -x    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_1 = self.pllay_1(self.flatten(x_1))
-        x_1 = self.flatten(x_1)
-        x_1 = tf.nn.relu(self.gtheta_1(x_1))
-
-        x = self.conv(x)
-        x = tf.nn.relu(x)
-        x = self.flatten(x)
-
-        # Pllay 2
-        x_2 = (x - tf.reduce_min(x).numpy()) / (tf.reduce_max(x).numpy() - tf.reduce_min(x).numpy())  # normalize x_3 between 0 and 1
-        x_2 = x_2 if self.sublevel else -x_2    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_2 = self.pllay_2(x_2)
-        x_2 = self.flatten(x_2)
-        x_2 = tf.nn.relu(self.gtheta_2(x_2))
-        
-        x = tf.concat((x, x_1, x_2), axis=-1)
-        x = self.fc(x)
-        return x
-
-
-class PlCnnDTM_i(Cnn):
-    def __init__(self, num_classes=10,
-                 **kwargs):
-        print(kwargs.keys())
-        self.sublevel = kwargs["sublevel"]
-        interval_1 = kwargs["interval_one"]
-        interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
+        self.sublevel_1 = kwargs["sublevel_1"]
+        interval_1 = kwargs["interval_1"]
+        interval_1 = interval_1 if self.sublevel_1 else [-i for i in reversed(interval_1)]
         tseq_1 = np.linspace(*interval_1, kwargs["steps"])
-        interval_2 = kwargs["interval_two"]
-        interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
+
+        self.sublevel_2 = kwargs["sublevel_2"]
+        interval_2 = kwargs["interval_2"]
+        interval_2 = interval_2 if self.sublevel_2 else [-i for i in reversed(interval_2)]
         tseq_2 = np.linspace(*interval_2, kwargs["steps"])
-        super().__init__()
+        
+        self.pllay_1 = PersistenceLandscapeLayer(tseq=tseq_1, *args, **kwargs)
+        self.gtheta_1 = Dense(32)
+        self.pllay_2 = PersistenceLandscapeLayer(tseq=tseq_2, *args, **kwargs)
+        self.gtheta_2 = Dense(32)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
         ])
-        self.pllay_1 = PersistenceLandscapeLayer(tseq=tseq_1 ,**kwargs)
-        self.gtheta_1 = Dense(kwargs["out_features"])
-        self.pllay_2 = PersistenceLandscapeLayer(tseq=tseq_2 ,**kwargs)
-        self.gtheta_2 = Dense(kwargs["out_features"])
 
     def call(self, x):
-        x, x_dtm005, x_dtm02 = x
+        x, x_dtm = x
 
-        # Pllay 1
-        x_1 = x_dtm005 if self.sublevel else -x_dtm005    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_1 = self.pllay_1(self.flatten(x_1))
-        x_1 = self.flatten(x_1)
-        x_1 = tf.nn.relu(self.gtheta_1(x_1))
+        # first Pllay
+        pl_1 = self.pllay_1(self.flatten(x_dtm if self.sublevel_1 else -x_dtm))   # apply sublevel filtration on -x to obtain superlevel filtration
+        pl_1 = self.gtheta_1(self.flatten(pl_1))
+        pl_1 = tf.nn.relu(pl_1)
 
-        # Pllay 2
-        x_2 = x_dtm02 if self.sublevel else -x_dtm02    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_2 = self.pllay_2(self.flatten(x_2))
-        x_2 = self.flatten(x_2)
-        x_2 = tf.nn.relu(self.gtheta_2(x_2))
-
+        # CNN
         x = self.conv(x)
+
+        # second Pllay after conv layer
+        min_vals = tf.reduce_min(x, axis=(1, 2), keepdims=True) # shape: [B, 1, 1, C]
+        max_vals = tf.reduce_max(x, axis=(1, 2), keepdims=True) # shape: [B, 1, 1, C]
+        x_2 = (x - min_vals) / (max_vals - min_vals)            # normalize between 0 and 1 for each data and channel
+
+        pl_2 = self.pllay_2(self.flatten(x_2 if self.sublevel_2 else - x_2))
+        pl_2 = self.gtheta_2(self.flatten(pl_2))
+        pl_2 = tf.nn.relu(pl_2)
+
         x = tf.nn.relu(x)
         x = self.flatten(x)
         
-        x = tf.concat((x, x_1, x_2), axis=-1)
-        x = self.fc(x)
-        return x
-
-class PlCnnDTM(Cnn):
-    def __init__(self, num_classes=10, 
-                 **kwargs):
-        self.sublevel = kwargs["sublevel"]
-        interval_1 = kwargs["interval_one"]
-        interval_1 = interval_1 if self.sublevel else [-i for i in reversed(interval_1)]
-        tseq_1 = np.linspace(*interval_1, kwargs["steps"])
-        interval_2 = kwargs["interval_two"]
-        interval_2 = interval_2 if self.sublevel else [-i for i in reversed(interval_2)]
-        tseq_2 = np.linspace(*interval_2, kwargs["steps"])
-        super().__init__()
-        self.fc = Sequential([
-            Dense(64, activation='relu'),
-            Dense(num_classes)
-        ])
-        self.pllay_1 = PersistenceLandscapeLayer(tseq=tseq_1 ,**kwargs)
-        self.gtheta_1 = Dense(kwargs["out_features"])
-        self.pllay_2 = PersistenceLandscapeLayer(tseq=tseq_2 ,**kwargs)
-        self.gtheta_2 = Dense(kwargs["out_features"])
-        self.pllay_3 = TopoWeightLayer(units=kwargs["out_features"], tseq=tseq_1, **kwargs)
-
-    def call(self, x):
-        x, x_dtm005, x_dtm02 = x
-
-        # Pllay 1
-        x_1 = x_dtm005 if self.sublevel else -x_dtm005    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_1 = self.pllay_1(self.flatten(x_1))
-        x_1 = self.flatten(x_1)
-        x_1 = tf.nn.relu(self.gtheta_1(x_1))
-
-        # Pllay 2
-        x_2 = x_dtm02 if self.sublevel else -x_dtm02    # apply sublevel filtration on -x to obtain superlevel filtration
-        x_2 = self.pllay_2(self.flatten(x_2))
-        x_2 = self.flatten(x_2)
-        x_2 = tf.nn.relu(self.gtheta_2(x_2))
-
-        x = self.conv(x)
-        x = tf.nn.relu(x)
-        x = self.flatten(x)
-
-        # Pllay 3
-        x_3 = (x - tf.reduce_min(x).numpy()) / (tf.reduce_max(x).numpy() - tf.reduce_min(x).numpy())  # normalize x_3 between 0 and 1
-        x_3 = self.pllay_3(x_3)
-        x_3 = self.flatten(x_3)
-        x_3 = tf.nn.relu(x_3)
-        
-        x = tf.concat((x, x_1, x_2, x_3), axis=-1)
+        x = tf.concat((x, pl_1, pl_2), axis=-1)
         x = self.fc(x)
         return x
