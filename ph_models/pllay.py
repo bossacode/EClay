@@ -422,7 +422,7 @@ class PersistenceLandscapeLayer(tf.keras.layers.Layer):
     cubCpx = gudhi.CubicalComplex(dimensions=self.grid_size, vertices=fun_value) if self.constr=="V" else gudhi.CubicalComplex(dimensions=self.grid_size, top_dimensional_cells=fun_value)
     pDiag = cubCpx.persistence(homology_coeff_field=2, min_persistence=0)
     # print('pDiag', pDiag)
-    location = cubCpx.cofaces_of_persistence_pairs()
+    location = cubCpx.vertices_of_persistence_pairs() if self.constr=="V" else cubCpx.cofaces_of_persistence_pairs()
     if location[0]:
       locationVstack = [np.vstack(location[0]), np.vstack(location[1])]
     else:
