@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # loop over different training size
     for train_size in train_size_list:
-        project = "MNIST_data_shallow"      # used as project name in wandb
+        project = "MNIST_data"  # used as project name in wandb
         
         print("-"*30)
         print(f"Number of training data: {train_size}")
@@ -58,8 +58,7 @@ if __name__ == "__main__":
             name = f"sim{sim}"                          # used for specifying runs in wandb
 
             train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{train_size}/train.pt", data_dir + f"{train_size}/val.pt", data_dir + "test.pt", cfg["batch_size"])
-
             model = models[args.model](**cfg["model_params"])
-            optim = tf.keras.optimizers.Adam(learning_rate=cfg["lr"], weight_decay=0.0001)
+            optim = tf.keras.optimizers.Adam(learning_rate=cfg["lr"])
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
             # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)

@@ -4,7 +4,7 @@ import wandb
 import argparse
 import yaml
 from train_tf import set_dataloader, train_test, train_test_wandb
-from models import PersCnnDTM, PlCnnDTM_i, PlCnnDTM
+from models import PersCnn, PlCnn_i, PlCnn
 
 
 # for reproducibility (may degrade performance)
@@ -18,9 +18,9 @@ args = parser.parse_args()
 
 
 models = {
-    "PersCnnDTM": PersCnnDTM,
-    "PlCnnDTM_i": PlCnnDTM_i,
-    "PlCnnDTM": PlCnnDTM
+    "PersCnn": PersCnn,
+    "PlCnn_i": PlCnn_i,
+    "PlCnn": PlCnn
     }
 
 
@@ -30,14 +30,14 @@ with open(f"configs/MNIST/{args.model}.yaml", "r") as f:
 
 
 if __name__ == "__main__":
-    nsim = 15                                       # number of simulations to run
-    cn_prob_list = [0.05, 0.1, 0.15, 0.2, 0.25]     # corruption and noise probabilities
+    nsim = 15                               # number of simulations to run
+    cn_prob_list = [0.05, 0.1, 0.15, 0.2]   # corruption and noise probabilities
 
     wandb.login()
 
     # loop over different noise probability
     for p in cn_prob_list:
-        project = "MNIST_noise_shallow"     # used as project name in wandb
+        project = "MNIST_noise" # used as project name in wandb
 
         print("-"*30)
         print(f"Corruption & noise rate: {p}")
@@ -59,8 +59,7 @@ if __name__ == "__main__":
             name = f"sim{sim}"                          # used for specifying runs in wandb
         
             train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{prob}/train.pt", data_dir + f"{prob}/val.pt", data_dir + f"{prob}/test.pt", cfg["batch_size"])
-
             model = models[args.model](**cfg["model_params"])
-            optim = tf.keras.optimizers.Adam(learning_rate=cfg["lr"], weight_decay=0.0001)
+            optim = tf.keras.optimizers.Adam(learning_rate=cfg["lr"])
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)
             # train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path)
