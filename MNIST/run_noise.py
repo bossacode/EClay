@@ -1,3 +1,5 @@
+import sys
+sys.path.append("../")
 import torch
 from torch.optim import Adam
 import os
@@ -21,9 +23,9 @@ args = parser.parse_args()
 
 model_dict = {
     "Cnn": Cnn,
-    "EcCnnDTM_i": EcCnn_i,
-    "EcCnnDTM": EcCnn,
-    # "SigEcCnnDTM": SigEcCnn
+    "EcCnn_i": EcCnn_i,
+    "EcCnn": EcCnn,
+    # "SigEcCnn": SigEcCnn
     }
 
 
