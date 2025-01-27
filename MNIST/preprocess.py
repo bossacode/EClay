@@ -41,10 +41,10 @@ def gen_sampled_data(train_size_list, val_size=0.3, num_labels=10):
         x_tr, x_val, y_tr, y_val = train_test_split(x_tr_sampled, y_tr_sampled, test_size=val_size, random_state=123, shuffle=True, stratify=y_tr_sampled)
         
         # apply DTM on train data
-        x_tr_dtm = dtm_transform(x_tr, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+        x_tr_dtm = dtm_transform(x_tr, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
 
         # apply DTM on validation data
-        x_val_dtm = dtm_transform(x_val, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+        x_val_dtm = dtm_transform(x_val, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
         
         # save train and validation data
         os.makedirs(dir + f"{train_size}/", exist_ok=True)
@@ -52,7 +52,7 @@ def gen_sampled_data(train_size_list, val_size=0.3, num_labels=10):
         torch.save((x_val, x_val_dtm, y_val), f=dir + f"{train_size}/val.pt")
     
     # apply DTM on test data
-    x_test_dtm = dtm_transform(x_test, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+    x_test_dtm = dtm_transform(x_test, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
 
     # save test data
     torch.save((x_test, x_test_dtm, y_test), f=dir + "test.pt")
@@ -77,15 +77,15 @@ def gen_noise_data(cn_prob_list, dir_path):
     for p in cn_prob_list:
         # apply DTM on corrupted and noised train data
         x_tr_cn = cn_transform(x_tr, p)
-        x_tr_cn_dtm = dtm_transform(x_tr_cn, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+        x_tr_cn_dtm = dtm_transform(x_tr_cn, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
 
         # apply DTM on corrupted and noised validation data
         x_val_cn = cn_transform(x_val, p)
-        x_val_cn_dtm = dtm_transform(x_val_cn, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+        x_val_cn_dtm = dtm_transform(x_val_cn, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
 
         # apply DTM on corrupted and noised test data
         x_test_cn = cn_transform(x_test, p)
-        x_test_cn_dtm = dtm_transform(x_test_cn, m0=0.01, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
+        x_test_cn_dtm = dtm_transform(x_test_cn, m0=0.05, lims=[[-0.5, 0.5], [-0.5, 0.5]], size=[28, 28])
 
         # save train, validation and test data
         dir = "./dataset/processed/cn_prob/" + str(int(p * 100)).zfill(2) + "/"
