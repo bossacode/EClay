@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from utils.train import set_dataloader, train_test, train_test_wandb
-from models import Cnn, EcCnn_i, EcCnn
+from models import Cnn, EcCnn_i, EcCnn, SigEcCnn
 
 
 # for reproducibility (may degrade performance)
@@ -25,7 +25,7 @@ model_dict = {
     "Cnn": Cnn,
     "EcCnn_i": EcCnn_i,
     "EcCnn": EcCnn,
-    # "SigEcCnn": SigEcCnn
+    "SigEcCnn": SigEcCnn
     }
 
 

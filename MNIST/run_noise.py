@@ -7,7 +7,7 @@ import wandb
 import argparse
 import yaml
 from utils.train import set_dataloader, train_test, train_test_wandb
-from models import Cnn, EcCnn_i, EcCnn
+from models import Cnn, EcCnn_i, EcCnn, SigEcCnn
 
 
 # for reproducibility (may degrade performance)
@@ -25,7 +25,7 @@ model_dict = {
     "Cnn": Cnn,
     "EcCnn_i": EcCnn_i,
     "EcCnn": EcCnn,
-    # "SigEcCnn": SigEcCnn
+    "SigEcCnn": SigEcCnn
     }
 
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         print("-"*30)
 
         prob = str(int(p * 100)).zfill(2)
-        data_dir = "./dataset/processed/cn_prob/"                       # base directory path to where data is loaded
+        data_dir = f"./dataset/processed/cn_prob/{prob}/"               # base directory path to where data is loaded
         weight_dir = f"./saved_weights/{args.model}/cn_prob/{prob}/"    # directory path to save trained weights
         os.makedirs(weight_dir, exist_ok=True)
         
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             job_type = prob                             # used for grouping experiments in wandb
             name = f"sim{sim}"                          # used for specifying runs in wandb
         
-            train_dl, val_dl, test_dl = set_dataloader(data_dir + f"{prob}/train.pt", data_dir + f"{prob}/val.pt", data_dir + f"{prob}/test.pt", cfg["batch_size"])
+            train_dl, val_dl, test_dl = set_dataloader(data_dir + "train.pt", data_dir + "val.pt", data_dir + "test.pt", cfg["batch_size"])
             model = model_dict[args.model](**cfg["model_params"]).to(cfg["device"])
             optim = Adam(model.parameters(), lr=cfg["lr"])
             train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, True, False, project, group, job_type, name)

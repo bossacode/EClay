@@ -1,1 +1,1 @@
-from eclayr.cubical.cubeclayr import CubEclayr
+from eclayr.cubical.cubeclayr import CubEclayr, SigCubEclayr
