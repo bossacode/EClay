@@ -135,7 +135,7 @@ def gen_noise_data(noise_prob_list, dir_path):
 
 if __name__ == "__main__":
     num_orbits_each_list = [400, 500, 600, 800, 1000]   # sample (per label) sizes
-    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2]       # noise probabilities
+    noise_prob_list = [0.05, 0.1, 0.15, 0.2]            # noise probabilities
     val_size=0.3                                        # proportion of validation split
     test_size=0.3                                       # proportion of test split
 
