@@ -1,0 +1,27 @@
+batch_size: 32
+epochs: 1000
+es_patience: 10
+lr: 0.001
+model_params:
+  num_classes: 5
+  # Pllay params
+  interval_1:
+  - 0.03
+  - 0.1
+  interval_2:
+  - 0.05
+  - 0.95
+  steps: 32
+  constr: "V"
+  sublevel_1: True
+  sublevel_2: False
+  KK:
+  - 0
+  - 1
+  grid_size:
+  - 40
+  - 40
+  dimensions:
+  - 0
+  - 1
+threshold: 0.001

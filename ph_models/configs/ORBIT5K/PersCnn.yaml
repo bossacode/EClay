@@ -1,0 +1,15 @@
+batch_size: 32
+epochs: 1000
+es_patience: 10
+lr: 0.001
+model_params:
+  num_classes: 5
+  # Perslay params
+  interval:
+  - 0.03
+  - 0.1
+  steps: 32
+  constr: "V"
+  sublevel: True
+  k: 2
+threshold: 0.001
