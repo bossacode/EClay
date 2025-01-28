@@ -4,7 +4,7 @@ import wandb
 import argparse
 import yaml
 from train_tf import set_dataloader, train_test, train_test_wandb
-from models import PersCnn, PlCnn_i, PlCnn
+from ph_models.mnist_models import PersCnn, PlCnn_i, PlCnn
 
 
 # for reproducibility (may degrade performance)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         print("-"*30)
 
         data_dir = "../MNIST/dataset/processed/train_size/"                     # base directory path to where data is loaded
-        weight_dir = f"./saved_weights/{args.model}/train_size/{train_size}/"   # directory path to save trained weights
+        weight_dir = f"./saved_weights/MNIST/{args.model}/train_size/{train_size}/"   # directory path to save trained weights
         os.makedirs(weight_dir, exist_ok=True)
         
         # loop over number of simulations
