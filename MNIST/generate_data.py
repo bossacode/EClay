@@ -1,11 +1,11 @@
+import sys
+sys.path.append("../")
 import torch
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 from sklearn.model_selection import train_test_split
 import numpy as np
 import os
-import sys
-sys.path.append("../")
 from utils.preprocess import corrupt_noise, dtm_transform
 
 
