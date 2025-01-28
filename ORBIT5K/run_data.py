@@ -37,22 +37,21 @@ cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 if __name__ == "__main__":
-    nsim = 15                                   # number of simulations to run
-    noise_prob_list = [0.05, 0.1, 0.15, 0.2]    # corruption and noise probabilities
+    nsim = 15                                           # number of simulations to run
+    num_orbits_list = [2000, 2500, 3000, 4000, 5000]    # number of generated orbits
 
     wandb.login()
 
-    # loop over different noise probability
-    for p in noise_prob_list:
-        project = "ORBIT_noise" # used as project name in wandb
+    # loop over different number of orbits
+    for num_orbits in num_orbits_list:
+        project = "ORBIT_data"  # used as project name in wandb
 
         print("-"*30)
-        print(f"Corruption & noise rate: {p}")
+        print(f"Number of generated orbits: {num_orbits}")
         print("-"*30)
 
-        prob = str(int(p * 100)).zfill(2)
-        data_dir = f"./dataset/noise_prob/{prob}/"                      # base directory path to where data is loaded
-        weight_dir = f"./saved_weights/{args.model}/noise_prob/{prob}/" # directory path to save trained weights
+        data_dir = f"./dataset/data_size/{num_orbits}/"                      # base directory path to where data is loaded
+        weight_dir = f"./saved_weights/{args.model}/data_size/{num_orbits}/" # directory path to save trained weights
         os.makedirs(weight_dir, exist_ok=True)
         
         # loop over number of simulations
@@ -62,7 +61,7 @@ if __name__ == "__main__":
             
             weight_path = weight_dir + f"sim{sim}.pt"   # file path to save trained weights
             group = args.model                          # used for grouping experiments in wandb
-            job_type = prob                             # used for grouping experiments in wandb
+            job_type = str(num_orbits)                  # used for grouping experiments in wandb
             name = f"sim{sim}"                          # used for specifying runs in wandb
         
             train_dl, val_dl, test_dl = set_dataloader(data_dir + "train.pt", data_dir + "val.pt", data_dir + "test.pt", cfg["batch_size"])

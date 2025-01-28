@@ -3,8 +3,7 @@ sys.path.append("../")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from eclayr.cubical.cubeclayr import ECLayr, SigECLayr
-from utils.dtm import WeightedDTMLayer
+from eclayr.cubical.cubeclayr import CubEclayr, SigCubEclayr
 
 
 # Cnn
@@ -32,72 +31,13 @@ class Cnn(nn.Module):
         return x
 
 
-# # Cnn + ECLayr
-# class EcCnn_i(Cnn):
-#     def __init__(self, in_channels=1, num_classes=5, gtheta_cfg=[32, 32], *args, **kwargs):
-#         super().__init__(in_channels, num_classes)
-#         self.ecc = alphaeclayr.ECLayr(gtheta_cfg=gtheta_cfg, *args, **kwargs)
-#         self.fc = nn.Sequential(
-#             nn.Linear(1600 + gtheta_cfg[-1], 64),
-#             nn.ReLU(),
-#             nn.Linear(64, num_classes)
-#             )
-
-#     def forward(self, x):
-#         x_pc, x, x_dtm = x
-        
-#         # ECLayr
-#         x_1 = F.relu(self.ecc(x_pc))
-        
-#         x = self.conv(x)
-#         x = F.relu(x)
-#         x = self.flatten(x)
-
-#         x = torch.concat((x, x_1), dim=-1)
-#         x = self.fc(x)
-#         return x
-
-
-# # Cnn + ECLayr + ECLayr after conv
-# class EcCnn(Cnn):
-#     def __init__(self, in_channels=1, num_classes=5, gtheta_cfg=[32, 32], *args, **kwargs):
-#         super().__init__(in_channels, num_classes)
-#         self.ecc_1 = alphaeclayr.ECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-#         self.ecc_2 = cubeclayr.ECLayr(interval=kwargs["interval_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-#         self.fc = nn.Sequential(
-#                     nn.Linear(1600 + 2*gtheta_cfg[-1], 64),
-#                     nn.ReLU(),
-#                     nn.Linear(64, num_classes)
-#                     )
-
-#     def forward(self, x):
-#         x_pc, x, x_dtm = x
-
-#         # ECLayr 1
-#         x_1 = F.relu(self.ecc_1(x_pc))
-
-#         # Cnn
-#         x = self.conv(x)
-
-#         # ECLayr 2 after first conv layer
-#         x_2 = (x - x.min().item()) / (x.max().item() - x.min().item())  # normalize x_2 between 0 and 1
-#         x_2 = F.relu(self.ecc_2(x_2))
-
-#         x = F.relu(x)
-#         x = self.flatten(x)
-
-#         x = torch.concat((x, x_1, x_2), dim=-1)
-#         x = self.fc(x)
-#         return x
-
-
-class EcCnnDTM_i(Cnn):
-    def __init__(self, in_channels=1, num_classes=5,
-                 *args, **kwargs):
+# Cnn + ECLayr
+class EcCnn_i(Cnn):
+    def __init__(self, in_channels=1, num_classes=5, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc = ECLayr(*args, **kwargs)
+        self.eclayr = CubEclayr(postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(1600 + kwargs["gtheta_cfg"][-1], 64),
+            nn.Linear(1600 + 32, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
@@ -105,79 +45,89 @@ class EcCnnDTM_i(Cnn):
     def forward(self, x):
         x_pc, x, x_dtm = x
 
-        # ECLayr 1
-        x_1 = F.relu(self.ecc(x_dtm))
+        # ECLayr
+        ecc = self.eclayr(x_dtm)
+        ecc = F.relu(ecc)
 
+        # CNN
         x = self.conv(x)
         x = F.relu(x)
         x = self.flatten(x)
 
-        x = torch.concat((x, x_1), dim=-1)
+        x = torch.concat((x, ecc), dim=-1)
         x = self.fc(x)
         return x
 
 
-class EcCnnDTM(Cnn):
-    def __init__(self, in_channels=1, num_classes=5,
-                 *args, **kwargs):
+# Cnn + ECLayr + ECLayr after conv
+class EcCnn(Cnn):
+    def __init__(self, in_channels=1, num_classes=5, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = ECLayr(interval=kwargs["interval_one"], steps=kwargs["steps_one"], gtheta_cfg=kwargs["gtheta_cfg_one"], *args, **kwargs)
-        self.ecc_2 = ECLayr(interval=kwargs["interval_two"], steps=kwargs["steps_two"], gtheta_cfg=kwargs["gtheta_cfg_two"], *args, **kwargs)
+        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], sublevel=kwargs["sublevel_1"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
+        self.eclayr_2 = CubEclayr(interval=kwargs["interval_2"], sublevel=kwargs["sublevel_2"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(1600 + kwargs["gtheta_cfg_one"][-1] + kwargs["gtheta_cfg_two"][-1], 64),
+            nn.Linear(1600 + 2*32, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
-        # self.dtm = WeightedDTMLayer(m0=0.01, size=kwargs["size"])
 
     def forward(self, x):
         x_pc, x, x_dtm = x
 
-        # ECLayr 1
-        x_1 = F.relu(self.ecc_1(x_dtm))
+        # first ECLayr
+        ecc_1 = self.eclayr_1(x_dtm)
+        ecc_1 = F.relu(ecc_1)
         
+        # CNN
         x = self.conv(x)
 
-        # ECLayr 3 after first conv layer
-        x_2 = (x - x.min().item()) / (x.max().item() - x.min().item())  # normalize x_3 between 0 and 1
-        x_2 = F.relu(self.ecc_2(x_2))
-        
+        # second ECLayr after conv layer
+        min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
+        ecc_2 = self.eclayr_2(x_2)
+        ecc_2 = F.relu(ecc_2)
+
         x = F.relu(x)
         x = self.flatten(x)
 
-        x = torch.concat((x, x_1, x_2), dim=-1)
+        x = torch.concat((x, ecc_1, ecc_2), dim=-1)
         x = self.fc(x)
         return x
 
 
-class SigEcCnnDTM(Cnn):
-    def __init__(self, in_channels=1, num_classes=5, gtheta_cfg=[32, 32],
-                 *args, **kwargs):
+# Cnn + sigmoid ECLayr + sigmoid ECLayr after conv
+class SigEcCnn(Cnn):
+    def __init__(self, in_channels=1, num_classes=5, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.ecc_1 = SigECLayr(interval=kwargs["interval_one"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
-        self.ecc_2 = SigECLayr(interval=kwargs["interval_two"], gtheta_cfg=gtheta_cfg, *args, **kwargs)
+        self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
+        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], sublevel=kwargs["sublevel_2"], lam=kwargs["lam_2"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(1600 + 2*gtheta_cfg[-1], 64),
+            nn.Linear(1600 + 2*32, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
-        # self.dtm = WeightedDTMLayer(m0=0.01, size=kwargs["size"])
 
     def forward(self, x):
         x_pc, x, x_dtm = x
 
-        # ECLayr 1
-        x_1 = F.relu(self.ecc_1(x_dtm))
+        # first ECLayr
+        ecc_1 = self.eclayr_1(x_dtm)
+        ecc_1 = F.relu(ecc_1)
         
+        # CNN
         x = self.conv(x)
 
-        # ECLayr 3 after first conv layer
-        x_2 = (x - x.min().item()) / (x.max().item() - x.min().item())  # normalize x_3 between 0 and 1
-        x_2 = F.relu(self.ecc_2(x_2))
-        
+        # second ECLayr after conv layer
+        min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
+        ecc_2 = self.eclayr_2(x_2)
+        ecc_2 = F.relu(ecc_2)
+
         x = F.relu(x)
         x = self.flatten(x)
 
-        x = torch.concat((x, x_1, x_2), dim=-1)
+        x = torch.concat((x, ecc_1, ecc_2), dim=-1)
         x = self.fc(x)
         return x

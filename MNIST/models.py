@@ -95,6 +95,8 @@ class EcCnn(Cnn):
         x = self.fc(x)
         return x
 
+
+# Cnn + sigmoid ECLayr + sigmoid ECLayr after conv
 class SigEcCnn(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
