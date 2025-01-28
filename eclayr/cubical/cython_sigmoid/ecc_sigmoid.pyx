@@ -28,7 +28,7 @@ cdef class SigEccBackbone:
             interval (list[float], optional): Minimum and maximum value of interval to consider. Defaults to [0., 1.].
             steps (int, optional):  Number of discretized points. Defaults to 32.
             constr (str, optional): One of V or T, corresponding to V-construction and T-construction, respectively. Defaults to V.
-            lamda (float, optional): Controls the tightness of sigmoid approximation. Defaults to 200.
+            lam (float, optional): Controls the tightness of sigmoid approximation. Defaults to 200.
         """
         self.h, self.w = arr_size
         self.cub_h, self.cub_w = [2*i-1 if constr=="V" else 2*i+1 for i in [self.h, self.w]]  # size of the cubical complex
