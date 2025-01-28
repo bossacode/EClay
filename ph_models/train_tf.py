@@ -11,10 +11,8 @@ from utils.train import EarlyStopping
 
 
 def permute_dataset(dataset):
-    x, x_dtm, y = dataset
-    x = x.permute(0, 2, 3, 1)
-    x_dtm = x_dtm.permute(0, 2, 3, 1)
-    dataset = tf.data.Dataset.from_tensor_slices((x, x_dtm, y))
+    *X, y = dataset
+    dataset = tf.data.Dataset.from_tensor_slices((*[x.permute(0,2,3,1) if x.ndim == 4 else x for x in X], y))
     return dataset.shuffle(100, reshuffle_each_iteration=True, seed=123)
 
 
