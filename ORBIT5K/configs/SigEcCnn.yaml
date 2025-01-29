@@ -6,10 +6,17 @@ model_params:
   in_channels: 1
   num_classes: 5
   # ECLayr params
-  interval:
+  interval_1:
   - 0.03
   - 0.1
-  steps: 17
+  interval_2:
+  - 0.05
+  - 0.95
+  steps_1: 17
+  steps_2: 18
   constr: "V"
-  sublevel: True
+  sublevel_1: True
+  sublevel_2: False
+  lam_1: 1000.
+  lam_2: 100.
 threshold: 0.003
