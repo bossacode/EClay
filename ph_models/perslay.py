@@ -26,7 +26,6 @@ class CubicalPerslay(tf.keras.layers.Layer):
         # postprocessing
         rho = tf.identity
         self.perslay = prsl.Perslay(weight=weight, phi=phi, perm_op=perm_op, rho=rho)
-        self.fc = Dense(32)
     
     def call(self, x):
         """_summary_
@@ -56,6 +55,6 @@ class CubicalPerslay(tf.keras.layers.Layer):
                     dim_diag = tf.RaggedTensor.from_tensor(dim_diag[None, :])
                     diag_list.append(dim_diag)
         diags = tf.concat(diag_list, axis=0)
-        pers = self.perslay(diags)
+        pers = self.perslay(diags)                  # shape: (B*C*2, steps*k)
         pers = tf.reshape(pers, (batch_size, -1))   # size: (B, C*k*2*steps)
-        return self.fc(pers)
+        return pers
