@@ -78,17 +78,17 @@ def gen_data(val_size, test_size, num_orbits_each_list, rhos=[2.5, 3.5, 4.0, 4.1
         # transform train data point cloud to image
         X_tr_grid = pc2grid(x_tr)
         # apply DTM on train data
-        X_tr_dtm = dtm_transform(x_tr, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_tr_dtm = dtm_transform(x_tr, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
         # transform validation data point cloud to image
         X_val_grid = pc2grid(x_val)
         # apply DTM on validation data
-        X_val_dtm = dtm_transform(x_val, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_val_dtm = dtm_transform(x_val, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
         # transform test data point cloud to image
         X_test_grid = pc2grid(x_test)
         # apply DTM on test data
-        X_test_dtm = dtm_transform(x_test, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_test_dtm = dtm_transform(x_test, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
         # save train, validation, and test data
         os.makedirs(dir + f"{len(rhos)*num_orbits_each}/", exist_ok=True)
@@ -110,21 +110,21 @@ def gen_noise_data(noise_prob_list, dir_path):
         # transform noised train data point cloud to image
         X_tr_grid = pc2grid(X_tr_noise)
         # apply DTM on noised train data
-        X_tr_dtm = dtm_transform(X_tr_noise, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_tr_dtm = dtm_transform(X_tr_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
         # add noise to validation data
         X_val_noise = noise(x_val, p)
         # transform noised train validation point cloud to image
         X_val_grid = pc2grid(X_val_noise)
         # apply DTM on noised validation data
-        X_val_dtm = dtm_transform(X_val_noise, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_val_dtm = dtm_transform(X_val_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
 
         # add noise to test data
         X_test_noise = noise(x_test, p)
         # transform noised test data point cloud to image
         X_test_grid = pc2grid(X_test_noise)
         # apply DTM on noised test data
-        X_test_dtm = dtm_transform(X_test_noise, m0=0.01, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_test_dtm = dtm_transform(X_test_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
 
         dir_name = dir + str(int(p * 100)).zfill(2) + "/"
         os.makedirs(dir_name, exist_ok=True)
@@ -136,7 +136,7 @@ def gen_noise_data(noise_prob_list, dir_path):
 if __name__ == "__main__":
     num_orbits_each_list = [400, 500, 600, 800, 1000]   # sample (per label) sizes
     noise_prob_list = [0.05, 0.1, 0.15, 0.2]            # noise probabilities
-    val_size=0.3                                        # proportion of validation split
+    val_size=0.1                                        # proportion of validation split
     test_size=0.3                                       # proportion of test split
 
     torch.manual_seed(123)

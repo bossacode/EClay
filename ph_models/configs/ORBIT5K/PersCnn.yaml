@@ -1,6 +1,6 @@
-batch_size: 32
-epochs: 1000
-es_patience: 10
+batch_size: 16
+epochs: 100
+es_patience: 3
 lr: 0.001
 model_params:
   num_classes: 5
@@ -12,4 +12,4 @@ model_params:
   constr: "V"
   sublevel: True
   k: 2
-threshold: 0.001
+threshold: 0.003
