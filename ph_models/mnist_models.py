@@ -34,6 +34,7 @@ class PersCnn(Cnn):
     def __init__(self, num_classes=10, *args, **kwargs):
         super().__init__()
         self.perslay = CubicalPerslay(*args, **kwargs)
+        self.gtheta = Dense(64)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
@@ -44,6 +45,7 @@ class PersCnn(Cnn):
 
         # Perslay
         pers = self.perslay(x_dtm)
+        pers = self.gtheta(pers)
         pers = tf.nn.relu(pers)
 
         # CNN
@@ -65,7 +67,7 @@ class PlCnn_i(Cnn):
         tseq = np.linspace(*interval, kwargs["steps"])
         
         self.pllay = PersistenceLandscapeLayer(tseq=tseq ,*args, **kwargs)
-        self.gtheta = Dense(32)
+        self.gtheta = Dense(64)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
@@ -95,17 +97,17 @@ class PlCnn(Cnn):
         self.sublevel_1 = kwargs["sublevel_1"]
         interval_1 = kwargs["interval_1"]
         interval_1 = interval_1 if self.sublevel_1 else [-i for i in reversed(interval_1)]
-        tseq_1 = np.linspace(*interval_1, kwargs["steps"])
+        tseq_1 = np.linspace(*interval_1, kwargs["steps_1"])
 
         self.sublevel_2 = kwargs["sublevel_2"]
         interval_2 = kwargs["interval_2"]
         interval_2 = interval_2 if self.sublevel_2 else [-i for i in reversed(interval_2)]
-        tseq_2 = np.linspace(*interval_2, kwargs["steps"])
+        tseq_2 = np.linspace(*interval_2, kwargs["steps_2"])
         
         self.pllay_1 = PersistenceLandscapeLayer(tseq=tseq_1, *args, **kwargs)
-        self.gtheta_1 = Dense(32)
+        self.gtheta_1 = Dense(64)
         self.pllay_2 = PersistenceLandscapeLayer(tseq=tseq_2, *args, **kwargs)
-        self.gtheta_2 = Dense(32)
+        self.gtheta_2 = Dense(64)
         self.fc = Sequential([
             Dense(64, activation='relu'),
             Dense(num_classes)
