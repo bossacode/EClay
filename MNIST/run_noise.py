@@ -37,7 +37,7 @@ cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 if __name__ == "__main__":
-    nsim = 15                               # number of simulations to run
+    nsim = 20                               # number of simulations to run
     cn_prob_list = [0.05, 0.1, 0.15, 0.2]   # corruption and noise probabilities
 
     wandb.login()

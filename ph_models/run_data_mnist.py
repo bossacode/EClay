@@ -30,7 +30,7 @@ with open(f"configs/MNIST/{args.model}.yaml", "r") as f:
 
 
 if __name__ == "__main__":
-    nsim = 15                                       # number of simulations to run
+    nsim = 20                                       # number of simulations to run
     train_size_list = [100, 300, 500, 700, 1000]    # training sample sizes
 
     wandb.login()
