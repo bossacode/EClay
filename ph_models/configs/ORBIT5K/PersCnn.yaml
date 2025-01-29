@@ -8,7 +8,7 @@ model_params:
   interval:
   - 0.03
   - 0.1
-  steps: 32
+  steps: 17
   constr: "V"
   sublevel: True
   k: 2
