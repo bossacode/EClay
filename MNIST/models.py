@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from eclayr.cubical.cubeclayr import CubEclayr, SigCubEclayr
 
+topo_out_units = 64
 
 # Cnn
 class Cnn(nn.Module):
@@ -35,9 +36,9 @@ class Cnn(nn.Module):
 class EcCnn_i(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.eclayr = CubEclayr(postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
+        self.eclayr = CubEclayr(postprocess=nn.Linear(kwargs["steps"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
-            nn.Linear(784 + 32, 64),
+            nn.Linear(784 + topo_out_units, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
             )
@@ -63,10 +64,10 @@ class EcCnn_i(Cnn):
 class EcCnn(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], sublevel=kwargs["sublevel_1"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
-        self.eclayr_2 = CubEclayr(interval=kwargs["interval_2"], sublevel=kwargs["sublevel_2"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
+        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
+        self.eclayr_2 = CubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"], postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
-                    nn.Linear(784 + 2*32, 64),
+                    nn.Linear(784 + 2*topo_out_units, 64),
                     nn.ReLU(),
                     nn.Linear(64, num_classes)
                     )
@@ -100,10 +101,10 @@ class EcCnn(Cnn):
 class SigEcCnn(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
-        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], sublevel=kwargs["sublevel_2"], lam=kwargs["lam_2"], postprocess=nn.Linear(kwargs["steps"], 32), *args, **kwargs)
+        self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
+        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"], lam=kwargs["lam_2"], postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
-                    nn.Linear(784 + 2*32, 64),
+                    nn.Linear(784 + 2*topo_out_units, 64),
                     nn.ReLU(),
                     nn.Linear(64, num_classes)
                     )
