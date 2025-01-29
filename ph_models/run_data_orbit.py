@@ -4,7 +4,7 @@ import wandb
 import argparse
 import yaml
 from train_tf import set_dataloader, train_test, train_test_wandb
-from ph_models.orbit_models import PersCnn, PlCnn_i, PlCnn
+from ph_models.orbit_models import PersCnn
 
 
 # for reproducibility (may degrade performance)
@@ -19,8 +19,8 @@ args = parser.parse_args()
 
 models = {
     "PersCnn": PersCnn,
-    "PlCnn_i": PlCnn_i,
-    "PlCnn": PlCnn
+    # "PlCnn_i": PlCnn_i,
+    # "PlCnn": PlCnn
     }
 
 
@@ -30,8 +30,8 @@ with open(f"configs/ORBIT5K/{args.model}.yaml", "r") as f:
 
 
 if __name__ == "__main__":
-    nsim = 15                                       # number of simulations to run
-    num_orbits_list = [500, 700, 1000]    # number of generated orbits
+    nsim = 20                                           # number of simulations to run
+    num_orbits_list = [2000, 2500, 3000, 4000, 5000]    # number of generated orbits
 
     wandb.login()
 
