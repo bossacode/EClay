@@ -1,6 +1,6 @@
-batch_size: 32
-epochs: 1000
-es_patience: 10
+batch_size: 16
+epochs: 100
+es_patience: 3
 lr: 0.001
 model_params:
   num_classes: 10
@@ -8,7 +8,7 @@ model_params:
   interval:
   - 0.06
   - 0.3
-  steps: 32
+  steps: 25
   constr: "V"
   sublevel: True
   KK:
@@ -20,4 +20,4 @@ model_params:
   dimensions:
   - 0
   - 1
-threshold: 0.001
+threshold: 0.003
