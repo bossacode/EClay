@@ -30,8 +30,8 @@ with open(f"configs/ORBIT5K/{args.model}.yaml", "r") as f:
 
 
 if __name__ == "__main__":
-    nsim = 20                                           # number of simulations to run
-    num_orbits_list = [2000, 2500, 3000, 4000, 5000]    # number of generated orbits
+    nsim = 20                   # number of simulations to run
+    num_orbits_list = [5000]    # number of generated orbits
 
     wandb.login()
 

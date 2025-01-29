@@ -30,7 +30,7 @@ with open(f"configs/ORBIT5K/{args.model}.yaml", "r") as f:
 
 
 if __name__ == "__main__":
-    nsim = 15                               # number of simulations to run
+    nsim = 20                               # number of simulations to run
     cn_prob_list = [0.05, 0.1, 0.15, 0.2]   # corruption and noise probabilities
 
     wandb.login()
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             print(f"\nSimulation: [{sim} / {nsim}]")
             print("-"*30)
             
-            weight_path = weight_dir + f"sim{sim}.npz"   # file path to save trained weights
+            weight_path = weight_dir + f"sim{sim}.npz"  # file path to save trained weights
             group = args.model                          # used for grouping experiments in wandb
             job_type = prob                             # used for grouping experiments in wandb
             name = f"sim{sim}"                          # used for specifying runs in wandb
