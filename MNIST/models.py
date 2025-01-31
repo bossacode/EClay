@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from eclayr.cubical.cubeclayr import CubEclayr, SigCubEclayr
 
-topo_out_units = 64
+topo_out_units = 32
 
 # Cnn
 class Cnn(nn.Module):
