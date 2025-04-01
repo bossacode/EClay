@@ -537,7 +537,10 @@ cdef class EccBackbone3d:
                             vtx = self._find_max_vtx(vtx_filt, neighbor_vtx, num_neighbors, &num_max)   # vtx points at a C array containing index of vertices that contribute to constructing the cell
                             for i in range(num_max):
                                 pix = self._vtx2pix(vtx[i])
-                                grad_view[b, c, pix, t] -= (self.impulse / num_max)
+                                if dim == 2:
+                                    grad_view[b, c, pix, t] -= (self.impulse / num_max)
+                                else:
+                                    grad_view[b, c, pix, t] += (self.impulse / num_max)
                             free(vtx)
                             free(neighbor_vtx)
                 # cumsum
