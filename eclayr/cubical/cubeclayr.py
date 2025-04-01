@@ -4,7 +4,7 @@ from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 import math
 from eclayr.cubical.cython_eclayr.ecc import EccBackbone, EccBackbone3d
-from eclayr.cubical.cython_sigmoid.ecc_sigmoid import SigEccBackbone
+from eclayr.cubical.cython_sigmoid.ecc_sigmoid import SigEccBackbone, SigEccBackbone3d
 
 
 class EccFunction(Function):
@@ -134,7 +134,13 @@ class SigCubEclayr(nn.Module):
             torch.Tensor: Tensor of shape [B, C, steps].
         """
         if self.func is None:   # lazily initialize when first batch is passed
-            ecc = SigEccBackbone(x.shape[2:], self.interval, self.steps, self.constr, self.lam)
+            dim = len(x.shape[2:])
+            if dim == 2:
+                ecc = SigEccBackbone(x.shape[2:], self.interval, self.steps, self.constr, self.lam)
+            elif dim == 3:
+                ecc = SigEccBackbone3d(x.shape[2:], self.interval, self.steps, self.constr, self.lam)
+            else:
+                raise NotImplementedError
             self.func = ecc.cal_ecc_vtx if self.constr=="V" else ecc.cal_ecc_topdim     # function that calculates ECC and gradient if necessary.
 
         x = x if self.sublevel else -x  # impose sublevel set filtration on negative data when superlevel set filtration is used
