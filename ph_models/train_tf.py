@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from sklearn.metrics import classification_report
 from time import time
+from copy import deepcopy
 import wandb
 from utils.train import EarlyStopping
 
@@ -16,12 +17,14 @@ def permute_dataset(dataset):
     return dataset.shuffle(100, reshuffle_each_iteration=True, seed=123)
 
 
-def set_dataloader(train_file_path, val_file_path, test_file_path, batch_size):
-    train_dataset = torch.load(train_file_path, weights_only=True)
+def set_dl(data_dir, batch_size):
+    train_dataset = torch.load(data_dir + "train.pt", weights_only=True)
     train_dl = permute_dataset(train_dataset).batch(batch_size)
-    val_dataset = torch.load(val_file_path, weights_only=True)
+
+    val_dataset = torch.load(data_dir + "val.pt", weights_only=True)
     val_dl = permute_dataset(val_dataset).batch(batch_size)
-    test_dataset = torch.load(test_file_path, weights_only=True)
+    
+    test_dataset = torch.load(data_dir + "test.pt", weights_only=True)
     test_dl = permute_dataset(test_dataset).batch(batch_size)
     return train_dl, val_dl, test_dl
 
@@ -95,26 +98,23 @@ def test(model, dataloader, loss_fn):
     return avg_loss, accuracy
 
 
-def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=False, log_grad=False, val_metric="loss"):
-    # set loss function
-    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-
+def run(model, cfg, data_dir, val_metric="loss", use_wandb=False):
+    train_dl, val_dl, test_dl = set_dl(data_dir, cfg["batch_size"])             # set dataloader
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)   # set loss function
+    optim = tf.keras.optimizers.Adam(learning_rate=cfg["lr"])                   # set optimizer 
     # set learning rate scheduler
     try:
         scheduler = ReduceLROnPlateau(cfg["factor"], cfg["sch_patience"], cfg["threshold"])
     except KeyError:
         scheduler = None
         print("No learning rate scheduler.")
-
-    # set early stopping
-    es = EarlyStopping(cfg["es_patience"], cfg["threshold"], val_metric=val_metric)
+    es = EarlyStopping(cfg["es_patience"], cfg["threshold"], val_metric=val_metric) # set early stopping
     
     # train
-    if log_grad:
-        wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
+    # wandb.watch(model, loss_fn, log="all", log_freq=5)  # log gradients and model parameters every 5 batches
     start = time()
-    for n_epoch in range(1, cfg["epochs"]+1):
-        print(f"\nEpoch: [{n_epoch} / {cfg['epochs']}]")
+    for i_epoch in range(1, cfg["epochs"]+1):
+        print(f"\nEpoch: [{i_epoch} / {cfg['epochs']}]")
         print("-"*30)
 
         train_loss, train_acc = train(model, train_dl, loss_fn, optim)
@@ -124,43 +124,42 @@ def train_val(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=
             scheduler.reduce_lr(val_loss, optim)
 
         # early stopping
-        stop, improvement = es.stop_training(val_loss, val_acc, n_epoch)
-        if log_metric:
+        stop, improvement = es.stop_training(val_loss, val_acc, i_epoch)
+        if use_wandb:
             wandb.log({"train":{"loss":train_loss, "accuracy":train_acc},
                     "val":{"loss":val_loss, "accuracy":val_acc},
-                    "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=n_epoch)
-        if stop or n_epoch == cfg["epochs"]:
+                    "best_val":{"loss":es.best_loss, "accuracy":es.best_acc}}, step=i_epoch)
+        if stop or i_epoch == cfg["epochs"]:
             end = time()
             training_time = end - start
             print(f"\nTraining time: {training_time}\n")
-            if log_metric:
+            # np.savez(weight_path, *models_weights)  # save model weights
+            if use_wandb:
                 wandb.log({"training_time": training_time})
                 wandb.log({"best_epoch": es.best_epoch})
-            if weight_path is not None:
-                np.savez(weight_path, *models_weights)
             break
-        elif improvement and weight_path is not None:
-            models_weights = model.get_weights()
+        elif improvement:
+            best_models_weights = deepcopy(model.get_weights())
 
-
-def train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
-    train_val(model, cfg, optim, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
     # test
-    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-    loaded = np.load(weight_path)
-    loaded_weights = [loaded[key] for key in loaded.files]
-    model.set_weights(loaded_weights)
+    model.set_weights(best_models_weights)
     test_loss, test_acc = test(model, test_dl, loss_fn)
-    if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
+    if use_wandb:
+        wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
 
 
-def train_val_wandb(model, cfg, optim, train_dl, val_dl, weight_path=None, log_metric=True, log_grad=False, project=None, group=None, job_type=None, name=None, val_metric="loss"):
+# def train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric=False, log_grad=False, val_metric="loss"):
+#     run(model, cfg, optim, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
+#     # test
+#     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+#     loaded = np.load(weight_path)
+#     loaded_weights = [loaded[key] for key in loaded.files]
+#     model.set_weights(loaded_weights)
+#     test_loss, test_acc = test(model, test_dl, loss_fn)
+#     if log_metric: wandb.log({"test":{"loss":test_loss, "accuracy":test_acc}})
+
+
+def run_wandb(model, cfg, data_dir, project=None, group=None, job_type=None, name=None, val_metric="loss"):
     with wandb.init(config=cfg, project=project, group=group, job_type=job_type, name=name):
         cfg = wandb.config
-        train_val(model, cfg, optim, train_dl, val_dl, weight_path, log_metric, log_grad, val_metric)
-
-
-def train_test_wandb(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric=True, log_grad=False, project=None, group=None, job_type=None, name=None, val_metric="loss"):
-    with wandb.init(config=cfg, project=project, group=group, job_type=job_type, name=name):
-        cfg = wandb.config
-        train_test(model, cfg, optim, train_dl, val_dl, test_dl, weight_path, log_metric, log_grad, val_metric)
+        run(model, cfg, data_dir, val_metric, use_wandb=True)
