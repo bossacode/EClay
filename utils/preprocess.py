@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from utils.dtm import WeightedDTMLayer, DTMLayer
 
 
-# add corruption and noise to MNIST data
+# add corruption and noise to image data
 def corrupt_noise(x, p):
     """Replace pixels with random noise between 0 and 1 with probabilty p.
 
@@ -15,6 +15,8 @@ def corrupt_noise(x, p):
     Returns:
         torch.Tensor: Data corrupted by random noise.
     """
+    if p == 0:
+        return x
     data_list = []
     distr = Bernoulli(probs=p)
     for data in x:
@@ -29,7 +31,7 @@ def corrupt_noise(x, p):
     return x_crpt_noise
 
 
-# add noise to ORBIT data
+# add noise to point cloud data
 def noise(x, p):
     """Replace points with random noise between 0 and 1 with probabilty p.
 
