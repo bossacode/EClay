@@ -42,6 +42,8 @@ def noise(x, p):
     Returns:
         torch.Tensor: Data corrupted by random noise.
     """
+    if p == 0:
+        return x
     x_noise = x.clone()
     distr = Bernoulli(probs=p)
     for i in range(len(x)):
