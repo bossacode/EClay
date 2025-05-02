@@ -66,79 +66,78 @@ def pc2grid(X, by = 0.025):
     return X_grid.unsqueeze(1)
 
 
-def gen_data(val_size, test_size, num_orbits_each_list, rhos=[2.5, 3.5, 4.0, 4.1, 4.3], num_pts=1000):
-    dir = "./dataset/data_size/"
-    for num_orbits_each in num_orbits_each_list:
-        X, y = gen_orbits(rhos, num_pts, num_orbits_each=num_orbits_each)
-        # split test data
-        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=123, shuffle=True, stratify=y)
-        # split val data
-        x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=val_size, random_state=123, shuffle=True, stratify=y_train)
+# def gen_data(val_size, test_size, num_orbits_each_list, rhos=[2.5, 3.5, 4.0, 4.1, 4.3], num_pts=1000):
+#     dir = "./dataset/data_size/"
+#     for num_orbits_each in num_orbits_each_list:
+#         X, y = gen_orbits(rhos, num_pts, num_orbits_each=num_orbits_each)
+#         # split test data
+#         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=123, shuffle=True, stratify=y)
+#         # split val data
+#         x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=val_size, random_state=123, shuffle=True, stratify=y_train)
         
-        # transform train data point cloud to image
-        X_tr_grid = pc2grid(x_tr)
-        # apply DTM on train data
-        X_tr_dtm = dtm_transform(x_tr, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+#         # transform train data point cloud to image
+#         X_tr_grid = pc2grid(x_tr)
+#         # apply DTM on train data
+#         X_tr_dtm = dtm_transform(x_tr, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
-        # transform validation data point cloud to image
-        X_val_grid = pc2grid(x_val)
-        # apply DTM on validation data
-        X_val_dtm = dtm_transform(x_val, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+#         # transform validation data point cloud to image
+#         X_val_grid = pc2grid(x_val)
+#         # apply DTM on validation data
+#         X_val_dtm = dtm_transform(x_val, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
-        # transform test data point cloud to image
-        X_test_grid = pc2grid(x_test)
-        # apply DTM on test data
-        X_test_dtm = dtm_transform(x_test, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+#         # transform test data point cloud to image
+#         X_test_grid = pc2grid(x_test)
+#         # apply DTM on test data
+#         X_test_dtm = dtm_transform(x_test, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         
-        # save train, validation, and test data
-        os.makedirs(dir + f"{len(rhos)*num_orbits_each}/", exist_ok=True)
-        torch.save((x_tr, X_tr_grid, X_tr_dtm, y_tr), f=dir + f"{len(rhos)*num_orbits_each}/train.pt")
-        torch.save((x_val, X_val_grid, X_val_dtm, y_val), f=dir + f"{len(rhos)*num_orbits_each}/val.pt")
-        torch.save((x_test, X_test_grid, X_test_dtm, y_test), f=dir + f"{len(rhos)*num_orbits_each}/test.pt")
+#         # save train, validation, and test data
+#         os.makedirs(dir + f"{len(rhos)*num_orbits_each}/", exist_ok=True)
+#         torch.save((x_tr, X_tr_grid, X_tr_dtm, y_tr), f=dir + f"{len(rhos)*num_orbits_each}/train.pt")
+#         torch.save((x_val, X_val_grid, X_val_dtm, y_val), f=dir + f"{len(rhos)*num_orbits_each}/val.pt")
+#         torch.save((x_test, X_test_grid, X_test_dtm, y_test), f=dir + f"{len(rhos)*num_orbits_each}/test.pt")
 
 
-def gen_noise_data(noise_prob_list, dir_path):
+def gen_noise_data(noise_prob_list, val_size=0.3, test_size=0.3, num_orbits_each=1000, rhos=[2.5, 3.5, 4.0, 4.1, 4.3], num_pts=1000):
     # load sampled train and validation data
-    x_tr, _, _, y_tr = torch.load(dir_path + "/train.pt", weights_only=True)
-    x_val, _, _, y_val = torch.load(dir_path + "/val.pt", weights_only=True)
-    x_test, _, _, y_test = torch.load(dir_path + "/test.pt", weights_only=True)
+    # x_tr, _, _, y_tr = torch.load(dir_path + "/train.pt", weights_only=True)
+    # x_val, _, _, y_val = torch.load(dir_path + "/val.pt", weights_only=True)
+    # x_test, _, _, y_test = torch.load(dir_path + "/test.pt", weights_only=True)
 
-    dir = "./dataset/noise_prob/"
+    X, y = gen_orbits(rhos, num_pts, num_orbits_each=num_orbits_each)
+    # split test data
+    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=123, shuffle=True, stratify=y)
+    # split val data
+    x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=val_size, random_state=123, shuffle=True, stratify=y_train)
+    
     for p in noise_prob_list:
-        # add noise to train data
+        # add noise to data
         X_tr_noise = noise(x_tr, p)
-        # transform noised train data point cloud to image
-        X_tr_grid = pc2grid(X_tr_noise)
-        # apply DTM on noised train data
-        X_tr_dtm = dtm_transform(X_tr_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
-        
-        # add noise to validation data
         X_val_noise = noise(x_val, p)
-        # transform noised train validation point cloud to image
-        X_val_grid = pc2grid(X_val_noise)
-        # apply DTM on noised validation data
-        X_val_dtm = dtm_transform(X_val_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
-
-        # add noise to test data
         X_test_noise = noise(x_test, p)
-        # transform noised test data point cloud to image
+
+        # align point cloud to grid
+        X_tr_grid = pc2grid(X_tr_noise)
+        X_val_grid = pc2grid(X_val_noise)
         X_test_grid = pc2grid(X_test_noise)
-        # apply DTM on noised test data
+
+        # apply DTM
+        X_tr_dtm = dtm_transform(X_tr_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
+        X_val_dtm = dtm_transform(X_val_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
         X_test_dtm = dtm_transform(X_test_noise, m0=0.02, lims=[[0.0125, 0.9875], [0.0125, 0.9875]], size=[40, 40], weighted=False)
 
-        dir_name = dir + str(int(p * 100)).zfill(2) + "/"
-        os.makedirs(dir_name, exist_ok=True)
-        torch.save((X_tr_noise, X_tr_grid, X_tr_dtm, y_tr), f=dir_name + f"train.pt")
-        torch.save((X_val_noise, X_val_grid, X_val_dtm, y_val), f=dir_name + f"val.pt")
-        torch.save((X_test_noise, X_test_grid, X_test_dtm, y_test), f=dir_name + f"test.pt")
+        dir = "./dataset/" + str(int(p * 100)).zfill(2) + "/"
+        os.makedirs(dir, exist_ok=True)
+        torch.save((X_tr_noise, X_tr_grid, X_tr_dtm, y_tr), f=dir + f"train.pt")
+        torch.save((X_val_noise, X_val_grid, X_val_dtm, y_val), f=dir + f"val.pt")
+        torch.save((X_test_noise, X_test_grid, X_test_dtm, y_test), f=dir + f"test.pt")
 
 
 if __name__ == "__main__":
-    num_orbits_each_list = [1000]               # sample (per label) sizes
-    noise_prob_list = [0.05, 0.1, 0.15, 0.2]    # noise probabilities
-    val_size=0.1                                # proportion of validation split
-    test_size=0.3                               # proportion of test split
+    num_orbits_each = 1000                              # sample (per label) sizes
+    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25] # noise probabilities
+    val_size=0.3                                        # proportion of validation split
+    test_size=0.3                                       # proportion of test split
 
     torch.manual_seed(123)
-    gen_data(val_size, test_size, num_orbits_each_list)
-    gen_noise_data(noise_prob_list, dir_path="./dataset/data_size/5000/")
+    # gen_data(val_size, test_size, num_orbits_each_list)
+    gen_noise_data(noise_prob_list, val_size, test_size, num_orbits_each, rhos=[2.5, 3.5, 4.0, 4.1, 4.3], num_pts=1000)
