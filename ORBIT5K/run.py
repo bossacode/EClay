@@ -17,7 +17,7 @@ parser.add_argument("--model_flag", help="Name of model to train")
 args = parser.parse_args()
 
 
-model_dict = {
+models = {
     "Cnn": Cnn,
     "EcCnn_i": EcCnn_i,
     "EcCnn": EcCnn,
@@ -34,23 +34,24 @@ cfg["device"] = "cuda" if torch.cuda.is_available() else "cpu"
 
 if __name__ == "__main__":
     nsim = 20                                           # number of simulations to run
-    cn_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]    # corruption and noise probabilities
+    noise_prob_list = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25] # noise probabilities
 
     wandb.login()
-    project = "MNIST"           # used as project name in wandb
+    project = "ORBIT5K"         # used as project name in wandb
     group = args.model_flag     # used for grouping experiments in wandb
 
-    # loop over different noise probability
-    for p in cn_prob_list:
-        prob = str(int(p * 100)).zfill(2)
-        job_type = prob                             # used for grouping experiments in wandb
-        data_dir = f"./dataset/processed/{prob}/"   # base directory path to where data is loaded
 
+    # loop over different noise probability
+    for p in noise_prob_list:
+        prob = str(int(p * 100)).zfill(2)
+        job_type = prob                     # used for grouping experiments in wandb
+        data_dir = f"./dataset/{prob}/"     # base directory path to where data is loaded
+        
         print("-"*30)
         print(f"Corruption & noise rate: {p}")
         print("-"*30)
-
-        # weight_dir = f"./saved_weights/{args.model_flag}/{prob}/"    # directory path to save trained weights
+        
+        # weight_dir = f"./saved_weights/{args.model}/noise_prob/{prob}/" # directory path to save trained weights
         # os.makedirs(weight_dir, exist_ok=True)
         
         # loop over number of simulations
@@ -59,9 +60,9 @@ if __name__ == "__main__":
             print("-"*30)
             
             # weight_path = weight_dir + f"sim{sim}.pt"   # file path to save trained weights
-            name = f"sim{sim}"  # used for specifying runs in wandb
-
-            model = model_dict[args.model_flag](**cfg["model_params"]).to(cfg["device"])
+            name = f"sim{sim}"                          # used for specifying runs in wandb
+    
+            model = models[args.model_flag](**cfg["model_params"]).to(cfg["device"])
             
             run_wandb(model, cfg, data_dir, project, group, job_type, name)
             # run(model, cfg, data_dir)
