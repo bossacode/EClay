@@ -94,8 +94,10 @@ class EcCnn(Cnn):
 
         # second ECLayr after conv layer after ReLU
         max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
-        x_2 = x / max_vals                              # normalize between 0 and 1 for each data and channel
-        ecc_2 = F.relu(self.eclayr_2(x_2))
+        if (max_vals != 0).all():                         
+            ecc_2 = F.relu(self.eclayr_2(x / max_vals)) # normalize between 0 and 1 for each data and channel
+        else:
+            ecc_2 = F.relu(self.eclayr_2(x))
         
         x = self.flatten(x)
         x = torch.concat((x, ecc_1, ecc_2), dim=-1)
@@ -110,8 +112,8 @@ class SigEcCnn(Cnn):
         # self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
         self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"],
                                   postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
-        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"],
-                                         postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
+        self.decc = SigCubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"],
+                                 postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
                     nn.Linear(784 + 2*topo_out_units, 64),
                     nn.ReLU(),
@@ -138,9 +140,11 @@ class SigEcCnn(Cnn):
 
         # second sig ECLayr after conv layer after ReLU
         max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
-        x_2 = x / max_vals                              # normalize between 0 and 1 for each data and channel
-        ecc_2 = F.relu(self.sig_eclayr_2(x_2))
-
+        if (max_vals != 0).all():
+            ecc_2 = F.relu(self.decc(x / max_vals)) # normalize between 0 and 1 for each data and channel
+        else:
+            ecc_2 = F.relu(self.decc(x))
+        
         x = self.flatten(x)
         x = torch.concat((x, ecc_1, ecc_2), dim=-1)
         x = self.fc(x)
