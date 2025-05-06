@@ -25,8 +25,7 @@ class Cnn(nn.Module):
 
     def forward(self, x):
         x, x_dtm = x
-        x = self.conv(x)
-        x = F.relu(x)
+        x = F.relu(self.conv(x))
         x = self.flatten(x)
         x = self.fc(x)
         return x
@@ -47,14 +46,12 @@ class EcCnn_i(Cnn):
         x, x_dtm = x
         
         # ECLayr
-        ecc = self.eclayr(x_dtm)
-        ecc = F.relu(ecc)
+        ecc = F.relu(self.eclayr(x_dtm))
         
         # CNN
-        x = self.conv(x)
-        x = F.relu(x)
+        x = F.relu(self.conv(x))
+        
         x = self.flatten(x)
-
         x = torch.concat((x, ecc), dim=-1)
         x = self.fc(x)
         return x
@@ -64,8 +61,10 @@ class EcCnn_i(Cnn):
 class EcCnn(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
-        self.eclayr_2 = CubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"], postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
+        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"],
+                                  postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
+        self.eclayr_2 = CubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"],
+                                  postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
                     nn.Linear(784 + 2*topo_out_units, 64),
                     nn.ReLU(),
@@ -76,22 +75,29 @@ class EcCnn(Cnn):
         x, x_dtm = x
 
         # first ECLayr
-        ecc_1 = self.eclayr_1(x_dtm)
-        ecc_1 = F.relu(ecc_1)
+        ecc_1 = F.relu(self.eclayr_1(x_dtm))
 
         # CNN
-        x = self.conv(x)
+        # x = self.conv(x)
 
-        # second ECLayr after conv layer
-        min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # # second ECLayr after conv layer before ReLU
+        # min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
+        # ecc_2 = self.eclayr_2(x_2)
+        # ecc_2 = F.relu(ecc_2)
+
+        # x = F.relu(x)
+
+        # CNN
+        x = F.relu(self.conv(x))
+
+        # second ECLayr after conv layer after ReLU
         max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
-        x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
-        ecc_2 = self.eclayr_2(x_2)
-        ecc_2 = F.relu(ecc_2)
-
-        x = F.relu(x)
+        x_2 = x / max_vals                              # normalize between 0 and 1 for each data and channel
+        ecc_2 = F.relu(self.eclayr_2(x_2))
+        
         x = self.flatten(x)
-
         x = torch.concat((x, ecc_1, ecc_2), dim=-1)
         x = self.fc(x)
         return x
@@ -101,8 +107,11 @@ class EcCnn(Cnn):
 class SigEcCnn(Cnn):
     def __init__(self, in_channels=1, num_classes=10, *args, **kwargs):
         super().__init__(in_channels, num_classes)
-        self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
-        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"], lam=kwargs["lam_2"], postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
+        # self.sig_eclayr_1 = SigCubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"], lam=kwargs["lam_1"], postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
+        self.eclayr_1 = CubEclayr(interval=kwargs["interval_1"], steps=kwargs["steps_1"], sublevel=kwargs["sublevel_1"],
+                                  postprocess=nn.Linear(kwargs["steps_1"], topo_out_units), *args, **kwargs)
+        self.sig_eclayr_2 = SigCubEclayr(interval=kwargs["interval_2"], steps=kwargs["steps_2"], sublevel=kwargs["sublevel_2"],
+                                         postprocess=nn.Linear(kwargs["steps_2"], topo_out_units), *args, **kwargs)
         self.fc = nn.Sequential(
                     nn.Linear(784 + 2*topo_out_units, 64),
                     nn.ReLU(),
@@ -113,22 +122,26 @@ class SigEcCnn(Cnn):
         x, x_dtm = x
 
         # first sig ECLayr
-        ecc_1 = self.sig_eclayr_1(x_dtm)
-        ecc_1 = F.relu(ecc_1)
+        ecc_1 = F.relu(self.eclayr_1(x_dtm))
 
         # CNN
-        x = self.conv(x)
+        x = F.relu(self.conv(x))
 
-        # second sig ECLayr after conv layer
-        min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # second sig ECLayr after conv layer before ReLU
+        # min_vals = x.amin(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
+        # x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
+        # ecc_2 = self.sig_eclayr_2(x_2)
+        # ecc_2 = F.relu(ecc_2)
+
+        # x = F.relu(x)
+
+        # second sig ECLayr after conv layer after ReLU
         max_vals = x.amax(dim=(2, 3), keepdim=True)     # shape: [B, C, 1, 1]
-        x_2 = (x - min_vals) / (max_vals - min_vals)    # normalize between 0 and 1 for each data and channel
-        ecc_2 = self.sig_eclayr_2(x_2)
-        ecc_2 = F.relu(ecc_2)
+        x_2 = x / max_vals                              # normalize between 0 and 1 for each data and channel
+        ecc_2 = F.relu(self.sig_eclayr_2(x_2))
 
-        x = F.relu(x)
         x = self.flatten(x)
-
         x = torch.concat((x, ecc_1, ecc_2), dim=-1)
         x = self.fc(x)
         return x
