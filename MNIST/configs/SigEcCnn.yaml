@@ -7,8 +7,8 @@ model_params:
   num_classes: 10
   # ECLayr params
   interval_1:
-  - 0.06
-  - 0.3
+  - 0.053
+  - 0.14
   interval_2:
   - 0.05
   - 0.95
@@ -17,6 +17,6 @@ model_params:
   constr: "V"
   sublevel_1: True
   sublevel_2: False
-  lam_1: 1000.
-  lam_2: 100.
+  lam: 200.
+  # lam: 100.
 threshold: 0.001
